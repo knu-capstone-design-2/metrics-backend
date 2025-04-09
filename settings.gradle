@@ -1,0 +1,5 @@
+rootProject.name = 'monitoring'
+
+include 'producer'
+include 'consumer'
+include 'data-collector'
