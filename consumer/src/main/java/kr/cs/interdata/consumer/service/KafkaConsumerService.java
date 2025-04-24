@@ -38,42 +38,47 @@ public class KafkaConsumerService {
             String id = record.key();
             String json = record.value();
 
-            if (!isValidJson(json)) continue;
-
             try {
-                JsonNode rootNode = objectMapper.readTree(json);
+                JsonNode rootNode = parseJson(json, record);  // JSON 파싱을 메서드로 분리
                 JsonNode metricsNode = rootNode.get("metrics");
                 JsonNode containerIdNode = rootNode.get("containerId");
 
-                // websocket으로 데이터 전달
-                /*
-                코드 삽입 필요
-                배포 완료 및 도메인 생성 및 프론트의 설정이 어느정도 완료되면 코드 삽입 예정
-                 */
+                if (metricsNode == null || containerIdNode == null) {
+                    throw new IllegalArgumentException("필수 필드(metrics 또는 containerId)가 누락된 메시지입니다.");
+                }
 
-                // 로그 출력
-                logger.info(record.toString());
+                // WebSocket으로 데이터 전달 예정
+                // TODO: 도메인 생성 및 프론트 설정 완료 후 삽입 예정
+
+                logger.info("Kafka Record 처리 성공: {}", record.toString());
+
+            } catch (InvalidJsonException e) {
+                logger.error("잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
+            } catch (IllegalArgumentException e) {
+                logger.warn("JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
             } catch (Exception e) {
-                logger.error("JSON 처리 중 오류 발생: {}", e.getMessage());
+                logger.error("예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
             }
+
         }
 
         // 수동 커밋
         ack.acknowledge();
     }
 
-    /**
-     * 	- message(kafka value)의 json 형태를 판별하는 메소드
-     *
-     * @param message // kafka topic에서 받아온 레코드의 value값
-     * @return true : json 형태에 적합, false : json 형태에 부적합
-     */
-    private boolean isValidJson(String message) {
+    // json 파싱
+    private JsonNode parseJson(String json, ConsumerRecord<String, String> record) {
         try {
-            objectMapper.readTree(message);
-            return true;
+            return objectMapper.readTree(json);
         } catch (Exception e) {
-            return false;
+            throw new InvalidJsonException("JSON 파싱 실패", e);
+        }
+    }
+    
+    // 사용자 정의 예외
+    public static class InvalidJsonException extends RuntimeException {
+        public InvalidJsonException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }
