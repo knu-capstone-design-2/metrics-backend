@@ -19,12 +19,6 @@ public class KafkaConsumerService {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumerService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
-    private AbnormalDtectionService abnormalDtectionService;
-    @Autowired
-    private MachineInventoryService machineInventoryService;
-    @Autowired
-    private MonitoringDefinitionService monitoringDefinitionService;
 
     /**
      * 	- Kafka로부터 배치 메시지를 수신하고 처리하는 메서드
@@ -35,7 +29,7 @@ public class KafkaConsumerService {
      * @param records // 지정 토픽에서 받아온 데이터 list
      */
     @KafkaListener(
-            topics = "${KAFKA_TOPIC_HOST}",
+            topics = "${KAFKA_TOPIC_METRICS}",
             groupId = "${KAFKA_GROUP_ID_STORAGE_GROUP}",
             containerFactory = "customContainerFactory"
     )
@@ -51,8 +45,11 @@ public class KafkaConsumerService {
                 JsonNode metricsNode = rootNode.get("metrics");
                 JsonNode containerIdNode = rootNode.get("containerId");
 
-                // DB 저장
-
+                // websocket으로 데이터 전달
+                /*
+                코드 삽입 필요
+                배포 완료 및 도메인 생성 및 프론트의 설정이 어느정도 완료되면 코드 삽입 예정
+                 */
 
                 // 로그 출력
                 logger.info(record.toString());
