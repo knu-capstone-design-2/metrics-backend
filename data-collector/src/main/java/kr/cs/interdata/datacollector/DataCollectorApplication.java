@@ -25,8 +25,8 @@ public class DataCollectorApplication {
         // 스프링 부트 애플리케이션 실행
         //SpringApplication.run(DataCollectorApplication.class, args);
 
-        //String json = ContainerResourceMonitor.collectContainerResources();
-        //System.out.println("=== 컨테이너 리소스 수집 결과 ===");
-        //System.out.println(json);
+        String json = ContainerResourceMonitor.collectContainerResources();
+        System.out.println("=== 컨테이너 리소스 수집 결과 ===");
+        System.out.println(json);
     }
 }

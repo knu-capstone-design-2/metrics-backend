@@ -9,6 +9,9 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ContainerResourceMonitor {
     // 컨테이너 내부에서 리소스 사용량을 수집하는 역할을 하는 클래스
 
@@ -48,6 +51,26 @@ public class ContainerResourceMonitor {
             logger.log(Level.SEVERE, "Failed to parse long from file: " + path + " (content: " + content + ")", e);
             return null;
         }
+    }
+    public static String collectContainerResources() {
+        // 실제로 컨테이너 리소스 정보를 수집해서 JSON 문자열로 반환하는 함수
+        Map<String, Object> jsonMap = new HashMap<>();
+
+        // type: 이 데이터가 컨테이너에서 왔다는 표시
+        jsonMap.put("type", "container");
+
+        // containerId: 컨테이너의 호스트네임(보통 컨테이너 ID와 같음)
+        String containerId = "unknown";//예외 발생 시 대비하기 위해서 기본값을 설정
+        try {
+            //자바의 InetAddress.getLocalHost().getHostName()을 호출하면 기본적으로 컨테이너 ID의 앞 12자리가 반환
+            //12자리는 Docker 내에서 유일하지만 100% 고유성을 원하면 64자리 ID 읽는 방법을 사용해야 함.
+            containerId = java.net.InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            //hostname을 얻는 과정에서 오류가 발생하면 에러 로그를 남기고 containerID는 unknown으로 남음
+            logger.log(Level.SEVERE, "Failed to get containerId (hostname)", e);
+        }
+        jsonMap.put("containerId", containerId);//JSON 데이터에 포함 시킴
+        return new Gson().toJson(jsonMap);
     }
 
 
