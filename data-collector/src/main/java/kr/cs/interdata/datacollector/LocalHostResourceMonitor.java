@@ -89,7 +89,7 @@ public class LocalHostResourceMonitor {
     }
 
     public long getDiskReadCount() {
-        //disk 읽은 수 -> 나중에 필요하면 써야지..ㅎㅎㅎ일단 들고와봄
+        //disk 읽은 수 -> 나중에 필요하면 써야지..일단 들고와봄
         long totalReads = 0;
         List<HWDiskStore> diskStores = systemInfo.getHardware().getDiskStores();
         for (HWDiskStore disk : diskStores) {
