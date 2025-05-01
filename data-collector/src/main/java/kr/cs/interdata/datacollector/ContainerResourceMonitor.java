@@ -69,6 +69,34 @@ public class ContainerResourceMonitor {
             //hostname을 얻는 과정에서 오류가 발생하면 에러 로그를 남기고 containerID는 unknown으로 남음
             logger.log(Level.SEVERE, "Failed to get containerId (hostname)", e);
         }
+
+        //cpu 사용량 측정
+        //1초 간격으로 누적 cpu 사용량을 2번 읽고 그 차이를 이욯해 1초 동안 CPU 사용률을 계산함.
+        ///sys/fs/cgroup/cpuacct/cpuacct.usage 파일은 컨테이너 혹은 프로세스가 지금까지 사용한 누적 CPU 시간(나노초 단위)를 기록
+        //https://velog.io/@hsh_124/cgroup-%EC%9D%84-%ED%86%B5%ED%95%B4-%EC%BB%A8%ED%85%8C%EC%9D%B4%EB%84%88%EC%9D%98-%EB%A6%AC%EC%86%8C%EC%8A%A4-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0
+        Long cpuUsageBefore=readLongFromFile("/sys/fs/cgroup/cpuacct/cpuacct.usage");
+
+        try{
+            Thread.sleep(1000);//1초동안 현재 스레드 멈춤
+        }catch (InterruptedException e){
+            //누군가 이 스레드에게 멈춰라고 신호를 보내서(인터럽트) 자고 있던 스레드가 깼을 때
+            //자바는 멈춰 신호를 자동으로 잊어버리기 때문에 catch 블록에서 다시 멈춰 신호를 켜줌.
+            Thread.currentThread().interrupt();
+            //인터럽트가 발생했다는 경고 메시지 남김.
+            logger.log(Level.WARNING,"Thread was interruped during CPU usage measurement",e);
+        }
+        //1초가 지난 후 다시 같은 파일에서 누적 CPU 사용량 읽어옴
+        //누적 사용량이기 때문에 이 값은 cpuUsageBefore보다 값이 커져있음
+        Long cpuUsageAfter=readLongFromFile("/sys/fs/cgroup/cpuacct/cpuacct.usage");
+        double cpuUsagePercent=-1;
+        if (cpuUsageBefore != null && cpuUsageAfter != null) {
+            //두 값이 모두 null이 아니면 계산을 시작
+            long delta = cpuUsageAfter - cpuUsageBefore;//1초 동안 실제로 사용한 CPU 시간
+            cpuUsagePercent = (delta / 1_000_000_000.0) * 100;//나노초 단위이기 때문에 초로 변환
+            //1초 동안 1코어를 100% 사용했다고 가정할 때, 실제 사용량을 퍼센트로 환산
+        }
+        jsonMap.put("cpuUsage", cpuUsagePercent);
+
         jsonMap.put("containerId", containerId);//JSON 데이터에 포함 시킴
         return new Gson().toJson(jsonMap);
     }
