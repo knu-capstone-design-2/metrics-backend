@@ -69,6 +69,7 @@ public class ContainerResourceMonitor {
             //hostname을 얻는 과정에서 오류가 발생하면 에러 로그를 남기고 containerID는 unknown으로 남음
             logger.log(Level.SEVERE, "Failed to get containerId (hostname)", e);
         }
+        jsonMap.put("containerId", containerId);//JSON 데이터에 포함 시킴
 
         //cpu 사용량 측정
         //1초 간격으로 누적 cpu 사용량을 2번 읽고 그 차이를 이욯해 1초 동안 CPU 사용률을 계산함.
@@ -97,7 +98,46 @@ public class ContainerResourceMonitor {
         }
         jsonMap.put("cpuUsage", cpuUsagePercent);
 
-        jsonMap.put("containerId", containerId);//JSON 데이터에 포함 시킴
+        // 메모리 정보 수집
+        //memory.limit_in_bytes: 컨테이너에 할당된 최대 메모리
+        //memory.usage_in_bytes: 현재 사용중인 메모리
+        /**
+        Long memoryLimit = readLongFromFile("/sys/fs/cgroup/memory/memory.limit_in_bytes");
+        if (memoryLimit == null) {
+            memoryLimit = readLongFromFile("/sys/fs/cgroup/memory.max");
+        }
+        **/
+        Long memoryUsage = readLongFromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+        if (memoryUsage == null) {
+            memoryUsage = readLongFromFile("/sys/fs/cgroup/memory.current");
+        }
+        /**
+        Long memoryFree=null;
+        if (memoryLimit != null && memoryUsage != null) {
+            memoryFree = memoryUsage - memoryLimit;
+        }
+         **/
+        //JSON에 값 넣기
+        /**
+        if (memoryFree!=null) {
+            jsonMap.put("memoryTotalBytes",memoryLimit);
+        }else{
+            jsonMap.put("memoryTotalBytes",-1);
+        }
+        **/
+        if (memoryUsage!=null){
+            jsonMap.put("memoryUsedBytes",memoryUsage);
+        }else{
+            jsonMap.put("memoryUsedBytes",-1);
+        }
+        /**
+        if (memoryFree!=null){
+            jsonMap.put("memoryFreeBytes",memoryFree);
+        }else{
+            jsonMap.put("memoryFreeBytes",-1);
+        }
+        **/
+
         return new Gson().toJson(jsonMap);
     }
 
