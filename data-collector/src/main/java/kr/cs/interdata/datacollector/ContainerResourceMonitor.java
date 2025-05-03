@@ -114,7 +114,7 @@ public class ContainerResourceMonitor {
         /**
         Long memoryFree=null;
         if (memoryLimit != null && memoryUsage != null) {
-            memoryFree = memoryUsage - memoryLimit;
+            memoryFree =  memoryLimit - memoryUsage;
         }
          **/
         //JSON에 값 넣기
@@ -137,6 +137,73 @@ public class ContainerResourceMonitor {
             jsonMap.put("memoryFreeBytes",-1);
         }
         **/
+
+        //디스크 I/O(읽기/쓰기 바이트) 수집
+        // blkio/io_service_bytes_recursive 또는 io.stat 파일에서 읽기/쓰기를 합산하여 디스크 I/O를 측정함.
+        long diskReadBytes = 0;//누적 읽기 바이트 저장할 변수 초기화
+        long diskWriteBytes = 0;//누적 쓰기
+
+        // cgroup v1 환경에서의 blkio 통계 파일 경로 시도
+        String blkioData = readFile("/sys/fs/cgroup/blkio/io_service_bytes_recursive");
+
+        if (blkioData == null) {
+            //  cgroup v1 파일이 없으면 cgroup v2 환경의 io.stat 파일 경로 시도
+            blkioData = readFile("/sys/fs/cgroup/io.stat");
+            if (blkioData != null) {
+                //io.stat 파일이 존재하면 각 줄을 파싱
+                String[] lines = blkioData.split("\n");
+                for (String line : lines) {
+                    //각 줄을 공백 기준으로 분리
+                    String[] parts = line.trim().split("\\s+");
+                    for (String part : parts) {
+                        //읽은 바이트(rbytes) 값 추출
+                        if (part.startsWith("rbytes=")) {
+                            try {
+                                //"rbytes=" 이후의 숫자만 추출
+                                diskReadBytes += Long.parseLong(part.substring(7));
+                            } catch (NumberFormatException e) {
+                                // 숫자 변환 실패 시 경고 로그 남김
+                                logger.log(Level.WARNING, "Failed to parse rbytes: " + part, e);
+                            }
+                        } else if (part.startsWith("wbytes=")) {
+                            // 쓴 바이트(wbytes) 값 추출
+                            try {
+                                // "wbytes=" 이후의 숫자만 추출
+                                diskWriteBytes += Long.parseLong(part.substring(7));
+                            } catch (NumberFormatException e) {
+                                // 숫자 변환 실패 시 경고 로그 남김
+                                logger.log(Level.WARNING, "Failed to parse wbytes: " + part, e);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // cgroup v1 파일이 존재하면, 각 줄을 파싱
+            String[] lines = blkioData.split("\n");
+            for (String line : lines) {
+                // 각 줄을 공백 기준으로 분리
+                String[] parts = line.trim().split("\\s+");
+                if (parts.length == 3) {
+                    String op = parts[1]; // 두 번째 값이 "Read" 또는 "Write"
+                    try {
+                        long value = Long.parseLong(parts[2]);// 세 번째 값이 바이트 수
+                        if ("Read".equalsIgnoreCase(op)) {
+                            diskReadBytes += value;// 읽은 바이트 누적
+                        } else if ("Write".equalsIgnoreCase(op)) {
+                            diskWriteBytes += value;// 쓴 바이트 누적
+                        }
+                    } catch (NumberFormatException e) {
+                        // 숫자 변환 실패 시 경고 로그 남김
+                        logger.log(Level.WARNING, "Failed to parse blkio value: " + line, e);
+
+                    }
+                }
+            }
+        }
+        // JSON 결과에 디스크 읽기/쓰기 바이트 값 추가
+        jsonMap.put("diskReadBytes", diskReadBytes);
+        jsonMap.put("diskWriteBytes", diskWriteBytes);
 
         return new Gson().toJson(jsonMap);
     }
