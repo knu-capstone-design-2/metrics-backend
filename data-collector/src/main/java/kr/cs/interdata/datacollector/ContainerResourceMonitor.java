@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
 // 로그(프로그램 동작 기록)를 남기기 위한 라이브러리
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,6 +55,71 @@ public class ContainerResourceMonitor {
             return null;
         }
     }
+
+    // 네트워크 인터페이스별로 받은 바이트, 보낸 바이트를 읽어오는 함수
+    // /proc/net/dev 파일을 파싱하여 정보를 가져dha.
+    private static Map<String, Long[]> getNetworkStats() {
+        Map<String, Long[]> networkStats = new HashMap<>();
+        String netDev = readFile("/proc/net/dev");//네트워크 통계 파일 읽기
+        if (netDev == null) return networkStats; // 파일을 못 읽으면 빈 값 반환
+        String[] lines = netDev.split("\n");
+
+        // 첫 두 줄은 헤더(설명)이므로 건너뜀
+        for (int i = 2; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) continue;// 빈 줄은 무시
+            String[] parts = line.split(":");
+            if (parts.length < 2) continue;//:가 없으면 잘못된 줄이므로 무시
+            String iface = parts[0].trim(); // 네트워크 인터페이스 이름
+            String[] data = parts[1].trim().split("\\s+");
+            if (data.length < 16) continue;//데이터 필드가 부족하면 무시
+            try {
+                long bytesReceived = Long.parseLong(data[0]); // 받은 바이트 수
+                long bytesSent = Long.parseLong(data[8]);     // 보낸 바이트 수
+                networkStats.put(iface, new Long[]{bytesReceived, bytesSent});//인터페이스별로 [받은 바이트, 보낸 바이트] 저장
+            } catch (NumberFormatException e) {
+                //숫자 변환 실패하면 경고 로그
+                logger.log(Level.WARNING, "Failed to parse network stats for interface: " + iface, e);
+            }
+        }
+        return networkStats;
+    }
+
+    // 네트워크 인터페이스별 실시간 트래픽 속도(초당 받은/보낸 바이트)를 측정하는 함수
+    // 1초 간격으로 /proc/net/dev 파일을 두 번 읽어서, 바이트 변화량을 계산함.
+    public static Map<String, Map<String, Long>> getNetworkRealtimeSpeed() {
+        // 첫 번째 샘플링: 현재 누적값 읽기
+        Map<String, Long[]> stats1 = getNetworkStats();
+        try {
+            TimeUnit.SECONDS.sleep(1); // 1초 대기
+        } catch (InterruptedException e) {
+            //인터럽트 발생하면 현재 스레드에 인터럽트 플래그를 다시 세우고 빈 맵 반환
+            Thread.currentThread().interrupt();
+            return Collections.emptyMap();
+        }
+        // 두 번째 샘플링: 1초 후 누적값 읽기->인터페이스 별로 저장
+        Map<String, Long[]> stats2 = getNetworkStats();
+
+        // 결과 저장용 Map
+        Map<String, Map<String, Long>> networkSpeedMap = new HashMap<>();
+        for (String iface : stats1.keySet()) {
+            if (stats2.containsKey(iface)) {
+                //1초 전과 1초 후의 누적 바이트 차이를 계산
+                long rx1 = stats1.get(iface)[0];//1초전 받은 바이트
+                long tx1 = stats1.get(iface)[1];//1초전 보낸 바이트
+                long rx2 = stats2.get(iface)[0];//1초 후 받은 바이트
+                long tx2 = stats2.get(iface)[1];//1초 후 보낸 바이트
+                long rxSpeed = rx2 - rx1; // 1초 동안 받은 바이트
+                long txSpeed = tx2 - tx1; // 1초 동안 보낸 바이트
+                Map<String, Long> ifaceMap = new HashMap<>();
+                ifaceMap.put("rxBps", rxSpeed); // 초당 받은 바이트
+                ifaceMap.put("txBps", txSpeed); // 초당 보낸 바이트
+                networkSpeedMap.put(iface, ifaceMap);//인터페이스별로 저장
+            }
+        }
+        return networkSpeedMap;
+    }
+
     public static String collectContainerResources() {
         // 실제로 컨테이너 리소스 정보를 수집해서 JSON 문자열로 반환하는 함수
         Map<String, Object> jsonMap = new HashMap<>();
@@ -204,6 +272,33 @@ public class ContainerResourceMonitor {
         // JSON 결과에 디스크 읽기/쓰기 바이트 값 추가
         jsonMap.put("diskReadBytes", diskReadBytes);
         jsonMap.put("diskWriteBytes", diskWriteBytes);
+
+        // 네트워크 정보 수집
+        //각 네트워크 인터페이스별로 누적 바이트와 실시간 속도 정보를 저장할 맵 생성
+        Map<String, Map<String, Long>> networkMap = new HashMap<>();
+        //현재 각 네트워크 인터페이스별로 받은 바이트, 보낸 바이트(누적값) 읽기
+        Map<String, Long[]> netStats = getNetworkStats();
+        Map<String, Map<String, Long>> speedMap = getNetworkRealtimeSpeed(); // rxBps, txBps
+
+        for (String iface : netStats.keySet()) {
+            Long[] stats = netStats.get(iface);
+            Map<String, Long> ifaceMap = new HashMap<>();
+
+            // 누적 바이트
+            ifaceMap.put("bytesReceived", stats[0]);//받은 바이트
+            ifaceMap.put("bytesSent", stats[1]);//보낸 바이트
+
+            // 실시간 트래픽 속도(rxBps, txBps)가 있으면 추가
+            if (speedMap.containsKey(iface)) {
+                ifaceMap.put("rxBps", speedMap.get(iface).get("rxBps"));//초당 받은 바이트
+                ifaceMap.put("txBps", speedMap.get(iface).get("txBps"));//초당 보낸 바이트
+            }
+
+            //인터페이스별로 정보 저장
+            networkMap.put(iface, ifaceMap);
+        }
+        jsonMap.put("network", networkMap);
+
 
         return new Gson().toJson(jsonMap);
     }
