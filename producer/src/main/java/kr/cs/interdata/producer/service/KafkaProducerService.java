@@ -31,6 +31,8 @@ public class KafkaProducerService {
             sendToHostTopic(jsonPayload);
         } else if ("container".equalsIgnoreCase(type)) {
             sendToContainerTopic(jsonPayload);
+        } else {
+            //
         }
     }
 
