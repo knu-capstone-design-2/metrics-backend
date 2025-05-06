@@ -42,3 +42,15 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+//bootJar {
+//    enabled = true
+//}
+//
+//jar {
+//    enabled = false
+//}
+
+springBoot {
+    mainClass = 'kr.cs.interdata.producer.ProducerApplication'
+}
