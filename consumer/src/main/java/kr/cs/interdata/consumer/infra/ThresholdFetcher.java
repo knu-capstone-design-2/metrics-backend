@@ -73,6 +73,7 @@ public class ThresholdFetcher {
                         metrics.forEach((metric, value) -> {
                             if (value > 0) {
                                 thresholdStore.updateThreshold(type, metric, value);
+                                logger.info("기준값을 조회 완료했습니다.");
                             } else {
                                 logger.warn("기준값 0 이하: {} -> {} = {} → 기존 유지", type, metric, value);
                             }

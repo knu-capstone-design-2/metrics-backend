@@ -7,6 +7,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ *  머신 타입당 메트릭이름당 threshold를 저장하는 class
+ *  ex) thresholdMap의 구성
+ *      [0] host -> [0] cpuUsage -> cpuUsage's threshold
+ *               -> [1] memoryUsage -> memoryUsage's threshold
+ *               -> [2] diskIO -> diskIO's threshold
+ *      [1] container -> [0] cpuUsage -> cpuUsage's threshold
+ *                    -> [1] memoryUsage -> memoryUsage's threshold
+ *      ...
+ */
 @Component
 public class ThresholdStore {
 
@@ -42,14 +52,4 @@ public class ThresholdStore {
                 .orElse(null);
     }
 
-    /**
-     * 특정 타입(type)에 대한 모든 메트릭들의 임계값 Map을 반환한다.
-     * 값이 없으면 빈 맵을 반환한다.
-     *
-     * @param type 머신 종류
-     * @return 해당 타입의 (메트릭 → 임계값) Map
-     */
-    public Map<String, Double> getThresholdsFor(String type) {
-        return thresholdMap.getOrDefault(type, Collections.emptyMap());
-    }
 }

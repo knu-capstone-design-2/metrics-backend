@@ -8,13 +8,13 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class ThresholdRequest {
-    private String type;
+    private String typeId;
     private String metric;
     private Double value;
     private LocalDateTime detected_at;
 
-    public ThresholdRequest(String type, String metric, Double value, LocalDateTime detected_at) {
-        this.type = type;
+    public ThresholdRequest(String typeId, String metric, Double value, LocalDateTime detected_at) {
+        this.typeId = typeId;
         this.metric = metric;
         this.value = value;
         this.detected_at = detected_at;
