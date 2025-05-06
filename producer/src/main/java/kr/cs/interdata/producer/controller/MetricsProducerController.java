@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/kafka")
 public class MetricsProducerController {
+    /***
+     * controller 사용 X
+     * 이 코드는 예전에 만든 것으로 혹시 몰라 삭제하지 않았음.
+     */
 
     private final KafkaProducerService kafkaProducerService;
 
