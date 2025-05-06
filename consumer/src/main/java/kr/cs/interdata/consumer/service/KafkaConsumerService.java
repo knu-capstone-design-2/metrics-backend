@@ -92,18 +92,31 @@ public class KafkaConsumerService {
                 for (int i = 0;i < 3;i++){
                     if (i == 0) {
                         metricName = "cpu";
-                        metricValue = metricsNode.get("cpuUsagePercent").asDouble();
+                        metricValue = metricsNode.has("cpuUsagePercent")
+                                ? metricsNode.get("cpuUsagePercent").asDouble()
+                                : 0.0;
                     }
                     if (i == 1) {
                         metricName = "memory";
-                        double memoryTotalBytes = metricsNode.get("memoryTotalBytes").asDouble();
-                        double memoryUsedBytes = metricsNode.get("memoryUsedBytes").asDouble();
+                        double memoryTotalBytes = metricsNode.has("memoryTotalBytes")
+                                ? metricsNode.get("memoryTotalBytes").asDouble()
+                                : 0.0;
+                        double memoryUsedBytes = metricsNode.has("memoryUsedBytes")
+                                ? metricsNode.get("memoryUsedBytes").asDouble()
+                                : 0.0;
+
                         metricValue = (memoryUsedBytes * 100) / memoryTotalBytes;
                     }
                     if (i == 2) {
                         metricName = "disk";
-                        double diskReadBytesRate = metricsNode.get("diskReadBytes").asDouble();
-                        double diskWriteBytesRate = metricsNode.get("diskWriteBytesRate").asDouble();
+                        //double diskReadBytesRate = metricsNode.get("diskReadBytes").asDouble();
+                        //double diskWriteBytesRate = metricsNode.get("diskWriteBytesRate").asDouble();
+                        double diskReadBytesRate = metricsNode.has("diskReadBytesRate")
+                                ? metricsNode.get("diskReadBytesRate").asDouble()
+                                : 0.0;
+                        double diskWriteBytesRate = metricsNode.has("diskWriteBytesRate")
+                                ? metricsNode.get("diskWriteBytesRate").asDouble()
+                                : 0.0;
                         metricValue = diskReadBytesRate + diskWriteBytesRate;
                     }
 
@@ -123,8 +136,12 @@ public class KafkaConsumerService {
                         String interfaceName = entry.getKey();
                         JsonNode interfaceData = entry.getValue();
 
-                        double bytesReceivedRate = interfaceData.path("bytesReceived").asDouble();
-                        double bytesSentRate = interfaceData.path("bytesSent").asDouble();
+                        double bytesReceivedRate = interfaceData.has("bytesReceived")
+                                ? interfaceData.get("bytesReceived").asDouble()
+                                : 0.0;
+                        double bytesSentRate = interfaceData.has("bytesSentRate")
+                                ? interfaceData.get("bytesSentRate").asDouble()
+                                : 0.0;
                         metricValue = bytesReceivedRate + bytesSentRate;
 
                         // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
@@ -134,6 +151,18 @@ public class KafkaConsumerService {
                 } else {
                     logger.warn("Host:{} - network 데이터를 찾을 수 없습니다.", typeId);
                 }
+
+                // metricsNode에서 각 메트릭 데이터를 추출하여 임계값 초과 여부를 확인하고 처리
+                // 문제가 있음. 데이터 받아오는 건 CPU는 Usage 한개지만 메모리는 free, use, total 세개가 다 옴.
+                // 이걸 여기서 하나의 값으로 처리할 수는 있음. -> for each문 안쓰면 됨! 걍 하드코딩식으로 각 값 key값을 다 받아와서 처리하는 식으로
+                // 근데 이렇게되면 모니터링 메트릭 값을 추후 추가할 수 없게 됨 -> 솔직히 돌아가는 게 우선순위면 이것도 별 문제가 안됨
+                // 일단 메트릭당 하나의 값을 준다고 가정했을 때의 코드로 짜놨는데
+                // 추후 채은이가 정말 정확한 json데이터를 정한 후에 하드코딩식으로 받아오게 수정해야 할듯
+                //
+                // ** cpu랑 memory랑 disk I/O는 하나지만, Network는 그 수가 변칙적임
+                // 그래서 네트워크는 key값을 "network"로 받아오고 value를 json데이터로 또 받아오고(network_json)
+                // network_json에서 foreach해서 네트워크마다 받아오자
+                // 근데 네트워크는 변칙적인만큼 db에 이상 데이터값으로는 어떤 네트워크든 network I/O로 통일되어서 들어갈듯
 
                 logger.info("Kafka Record(Host) 처리 성공: {}", record.toString());
 
