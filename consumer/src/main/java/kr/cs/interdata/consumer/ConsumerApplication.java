@@ -5,7 +5,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@SpringBootApplication
+@SpringBootApplication(
+		exclude = {
+				org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
+				org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class
+		}
+)
 public class ConsumerApplication {
 
 	public static void main(String[] args) {

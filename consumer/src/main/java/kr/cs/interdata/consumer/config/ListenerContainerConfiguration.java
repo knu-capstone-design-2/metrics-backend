@@ -18,11 +18,14 @@ import org.springframework.kafka.listener.*;
 @Configuration
 public class ListenerContainerConfiguration {
 
+    String bootstrap_server = "${KAFKA_TOPIC_HOST}";
+
     @Bean
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> customContainerFactory() {
         Map<String, Object> props = new HashMap<>();
 
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9094");   // Kafka 서버 주소 (브로커 리스트). 클러스터에 처음 연결할 때 사용하는 주소
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9094");     // Kafka 서버 주소 (브로커 리스트). 클러스터에 처음 연결할 때 사용하는 주소
+        //props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9094");           // kafka 서버 주소 -> container용
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);  // 메시지 키를 역직렬화할 클래스 (여기선 문자열로 처리)
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);    // 메시지 값을 역직렬화할 클래스 (여기서도 문자열)
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "data-stroage-group");    // 이 Consumer가 속한 Consumer Group ID (같은 Group ID면 하나만 처리함)
@@ -66,7 +69,7 @@ public class ListenerContainerConfiguration {
 
         factory.setBatchListener(true);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL); // 수동 커밋
-        factory.setConcurrency(6); // 병렬 컨슈머 수
+        factory.setConcurrency(2); // 병렬 컨슈머 수
         factory.setConsumerFactory(cf);
 
         return factory;

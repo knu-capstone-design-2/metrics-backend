@@ -47,7 +47,7 @@ public class ThresholdFetcher {
     }
 
     /**
-     * 1분마다 외부 API에서 경계값을 조회하고, 이를 ThresholdStore에 업데이트하는 메서드입니다.
+     * 1분마다 외부 API에서 임계값을 조회하고, 이를 ThresholdStore에 업데이트하는 메서드입니다.
      *
      * @note
      * 이 메서드는 `@Scheduled` 어노테이션을 통해 1분마다 실행되며, 경계값을 조회한 후,
@@ -65,7 +65,7 @@ public class ThresholdFetcher {
                 // 응답 바디를 비동기적으로 Mono 타입으로 변환한다. (Map<"머신 타입", Map<"메트릭 이름", "임계값">>)
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Map<String, Double>>>() {})
                 // 에러 로그
-                .doOnError(error -> logger.warn("기준값 조회 실패: {}", error.getMessage()))
+                .doOnError(error -> logger.warn("임계값 조회 실패: {}", error.getMessage()))
                 // 응답으로 받은 Map
                 // thresholdStore에 경계값 반영한다.
                 .subscribe(response -> {
@@ -73,12 +73,15 @@ public class ThresholdFetcher {
                         metrics.forEach((metric, value) -> {
                             if (value > 0) {
                                 thresholdStore.updateThreshold(type, metric, value);
+
                             } else {
-                                logger.warn("기준값 0 이하: {} -> {} = {} → 기존 유지", type, metric, value);
+                                logger.warn("임계값 0 이하: {} -> {} = {} → 기존 유지", type, metric, value);
                             }
                         });
+                        logger.info("type: {} -> 임계값을 조회 완료했습니다.", type);
                     });
                 });
+
     }
 
 }

@@ -25,16 +25,17 @@ public class ThresholdService {
     }
 
     /**
+     * TODO: 테스트 전 메서드 - service/ThresholdService.java
      * 임계값 초과 데이터를 API 백엔드로 전송하는 메서드.
      *
-     * @param host     : 메시지를 보낸 호스트
+     * @param typeId   : 메시지를 보낸 호스트/컨테이너 id
      * @param metric   : 메트릭 이름
      * @param value    : 임계값을 넘은 값
      * @param timestamp: 임계값을 넘은 시각
      */
-    public void sendThresholdViolation(String host, String metric, Double value, LocalDateTime timestamp) {
-        ThresholdRequest request = new ThresholdRequest(host, metric, value, timestamp);
-        String url = "/api/metrics/threshold-violations";
+    public void sendThresholdViolation(String typeId, String metric, Double value, LocalDateTime timestamp) {
+        ThresholdRequest request = new ThresholdRequest(typeId, metric, value, timestamp);
+        String url = "/api/violation-store";
 
         // API 백엔드로 POST 요청을 보내고 응답을 처리
         webClient.post()
@@ -48,8 +49,10 @@ public class ThresholdService {
                 })
                 .doOnTerminate(() -> {
                     // 성공적으로 요청을 마친 후의 처리
-                    logger.info("임계값 초과 데이터 전송 완료");
+                    logger.info("임계값 초과 데이터 전송 완료: typeId - {}, metric - {}, value - {}, timestamp - {}"
+                            , typeId, metric, value, timestamp);
                 })
                 .subscribe();  // 비동기 방식으로 호출
     }
+
 }
