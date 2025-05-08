@@ -1,1 +1,2 @@
+include 'data-collector'
 rootProject.name = 'data-collector'
