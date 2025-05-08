@@ -39,9 +39,15 @@ public class DataCollectorApplication {
                 long deltaRecv = currRecv - prevRecv;
                 long deltaSent = currSent - prevSent;
 
+                // 네트워크 속도(Bps, 초당 바이트)
+                long rxBps = deltaRecv / 5;
+                long txBps = deltaSent / 5;
+
                 Map<String, Object> ifaceDelta = new HashMap<>();
                 ifaceDelta.put("rxBytesDelta", deltaRecv);
                 ifaceDelta.put("txBytesDelta", deltaSent);
+                ifaceDelta.put("rxBps", rxBps); // 초당 받은 바이트
+                ifaceDelta.put("txBps", txBps); // 초당 보낸 바이트
                 netDelta.put(iface, ifaceDelta);
 
                 prevNetRecv.put(iface, currRecv);
