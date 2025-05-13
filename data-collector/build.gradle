@@ -5,8 +5,17 @@ plugins {
     id 'application'
 }
 
+bootJar {
+    enabled = true
+}
+jar {
+    enabled = false
+}
+
 group = 'kr.cs.interdata'
 version = '0.0.1-SNAPSHOT'
+
+
 
 java {
     toolchain {
@@ -50,6 +59,7 @@ repositories {
 }
 
 dependencies {
+    implementation project(':producer')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.kafka:spring-kafka'
     compileOnly 'org.projectlombok:lombok'
