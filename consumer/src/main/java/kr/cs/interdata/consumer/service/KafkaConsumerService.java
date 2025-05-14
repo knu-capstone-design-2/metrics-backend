@@ -2,6 +2,7 @@ package kr.cs.interdata.consumer.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.cs.interdata.consumer.infra.MetricWebsocketHandler;
 import kr.cs.interdata.consumer.infra.ThresholdStore;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -29,11 +30,16 @@ public class KafkaConsumerService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ThresholdStore thresholdStore;
     private final ThresholdService thresholdService;
+    private final MetricWebsocketHandler metricWebsocketHandler;
 
     @Autowired
-    public KafkaConsumerService(ThresholdStore thresholdStore, ThresholdService thresholdService) {
+    public KafkaConsumerService(
+            ThresholdStore thresholdStore,
+            ThresholdService thresholdService,
+            MetricWebsocketHandler metricWebsocketHandler) {
         this.thresholdStore = thresholdStore;
         this.thresholdService = thresholdService;
+        this.metricWebsocketHandler = metricWebsocketHandler;
     }
 
     /**
@@ -63,15 +69,12 @@ public class KafkaConsumerService {
                 // *******************************
                 //      transmit to websocket
                 // *******************************
-                // WebSocket으로 데이터 전달 예정
-                // TODO: 도메인 생성 및 설정 완료 후 삽입 예정
-
+                metricWebsocketHandler.sendMetricMessage(json);
 
                 // ***********************
                 //      set timestamp
                 // ***********************
-                LocalDateTime violationTime = LocalDateTime.now();
-
+                LocalDateTime violationTime = LocalDateTime.now().withNano(0);
 
                 // ***************************
                 //      compare threshold
@@ -80,12 +83,12 @@ public class KafkaConsumerService {
                 String metricName = null;
 
                 // type ID
-                String typeId = null;
+                String machineId = null;
                 if (metricsNode.has("hostId")) {
-                    typeId = metricsNode.get("hostId").asText();
+                    machineId = metricsNode.get("hostId").asText();
                 }
                 else {
-                    logger.warn("존재하지 않는 id입니다.");
+                    logger.warn("Host - 존재하지 않는 id입니다.");
                 }
 
                 // CPU, Memory, Disk
@@ -98,35 +101,28 @@ public class KafkaConsumerService {
                     }
                     if (i == 1) {
                         metricName = "memory";
-                        double memoryTotalBytes = metricsNode.has("memoryTotalBytes")
-                                ? metricsNode.get("memoryTotalBytes").asDouble()
-                                : 0.0;
-                        double memoryUsedBytes = metricsNode.has("memoryUsedBytes")
+                        metricValue = metricsNode.has("memoryUsedBytes")
                                 ? metricsNode.get("memoryUsedBytes").asDouble()
                                 : 0.0;
-
-                        metricValue = (memoryUsedBytes * 100) / memoryTotalBytes;
                     }
                     if (i == 2) {
                         metricName = "disk";
-                        //double diskReadBytesRate = metricsNode.get("diskReadBytes").asDouble();
-                        //double diskWriteBytesRate = metricsNode.get("diskWriteBytesRate").asDouble();
-                        double diskReadBytesRate = metricsNode.has("diskReadBytesRate")
-                                ? metricsNode.get("diskReadBytesRate").asDouble()
+                        double diskReadBytesDelta = metricsNode.has("diskReadBytesDelta")
+                                ? metricsNode.get("diskReadBytesDelta").asDouble()
                                 : 0.0;
-                        double diskWriteBytesRate = metricsNode.has("diskWriteBytesRate")
-                                ? metricsNode.get("diskWriteBytesRate").asDouble()
+                        double diskWriteBytesDelta = metricsNode.has("diskWriteBytesDelta")
+                                ? metricsNode.get("diskWriteBytesDelta").asDouble()
                                 : 0.0;
-                        metricValue = diskReadBytesRate + diskWriteBytesRate;
+                        metricValue = diskReadBytesDelta + diskWriteBytesDelta;
                     }
 
                     // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                    processThreshold("host", typeId,
+                    processThreshold("host", machineId,
                             metricName, metricValue, violationTime);
                 }
 
                 // Network
-                JsonNode networkNode = metricsNode.path("network");
+                JsonNode networkNode = metricsNode.path("networkDelta");
 
                 metricName = "network";
                 if (!networkNode.isMissingNode() && networkNode.isObject()) {
@@ -136,42 +132,30 @@ public class KafkaConsumerService {
                         String interfaceName = entry.getKey();
                         JsonNode interfaceData = entry.getValue();
 
-                        double bytesReceivedRate = interfaceData.has("bytesReceived")
-                                ? interfaceData.get("bytesReceived").asDouble()
+                        double txBytesDelta = interfaceData.has("txBytesDelta")
+                                ? interfaceData.get("txBytesDelta").asDouble()
                                 : 0.0;
-                        double bytesSentRate = interfaceData.has("bytesSentRate")
-                                ? interfaceData.get("bytesSentRate").asDouble()
+                        double rxBytesDelta = interfaceData.has("rxBytesDelta")
+                                ? interfaceData.get("rxBytesDelta").asDouble()
                                 : 0.0;
-                        metricValue = bytesReceivedRate + bytesSentRate;
+                        metricValue = txBytesDelta + rxBytesDelta;
 
                         // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                        processThreshold("host", typeId,
+                        processThreshold("host", machineId,
                                 metricName, metricValue, violationTime);
                     }
                 } else {
-                    logger.warn("Host:{} - network 데이터를 찾을 수 없습니다.", typeId);
+                    logger.warn("Host:{} - network 데이터를 찾을 수 없습니다.", machineId);
                 }
 
-                // metricsNode에서 각 메트릭 데이터를 추출하여 임계값 초과 여부를 확인하고 처리
-                // 문제가 있음. 데이터 받아오는 건 CPU는 Usage 한개지만 메모리는 free, use, total 세개가 다 옴.
-                // 이걸 여기서 하나의 값으로 처리할 수는 있음. -> for each문 안쓰면 됨! 걍 하드코딩식으로 각 값 key값을 다 받아와서 처리하는 식으로
-                // 근데 이렇게되면 모니터링 메트릭 값을 추후 추가할 수 없게 됨 -> 솔직히 돌아가는 게 우선순위면 이것도 별 문제가 안됨
-                // 일단 메트릭당 하나의 값을 준다고 가정했을 때의 코드로 짜놨는데
-                // 추후 채은이가 정말 정확한 json데이터를 정한 후에 하드코딩식으로 받아오게 수정해야 할듯
-                //
-                // ** cpu랑 memory랑 disk I/O는 하나지만, Network는 그 수가 변칙적임
-                // 그래서 네트워크는 key값을 "network"로 받아오고 value를 json데이터로 또 받아오고(network_json)
-                // network_json에서 foreach해서 네트워크마다 받아오자
-                // 근데 네트워크는 변칙적인만큼 db에 이상 데이터값으로는 어떤 네트워크든 network I/O로 통일되어서 들어갈듯
-
-                logger.info("Kafka Record(Host) 처리 성공: {}", record.toString());
+                logger.info("Kafka Record(Host) 처리 성공: {}", record);
 
             } catch (InvalidJsonException e) {
-                logger.error("잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
+                logger.error("Host - 잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
             } catch (IllegalArgumentException e) {
-                logger.warn("JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
+                logger.warn("Host - JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
             } catch (Exception e) {
-                logger.error("예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
+                logger.error("Host - 예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
             }
         }
         // 수동 커밋
@@ -205,14 +189,12 @@ public class KafkaConsumerService {
                 // *******************************
                 //      transmit to websocket
                 // *******************************
-                // WebSocket으로 데이터 전달 예정
-                // TODO: 도메인 생성 및 설정 완료 후 삽입 예정
-
+                metricWebsocketHandler.sendMetricMessage(json);
 
                 // ***********************
                 //      set timestamp
                 // ***********************
-                LocalDateTime violationTime = LocalDateTime.now();
+                LocalDateTime violationTime = LocalDateTime.now().withNano(0);
 
 
                 // ***************************
@@ -222,40 +204,46 @@ public class KafkaConsumerService {
                 String metricName = null;
 
                 // type ID
-                String typeId = null;
+                String machineId = null;
                 if (metricsNode.has("containerId")) {
-                    typeId = metricsNode.get("containerId").asText();
+                    machineId = metricsNode.get("containerId").asText();
                 }
                 else {
-                    logger.warn("존재하지 않는 id입니다.");
+                    logger.warn("Container - 존재하지 않는 id입니다.");
                 }
 
                 // CPU, Memory, Disk
                 for (int i = 0;i < 3;i++){
                     if (i == 0) {
                         metricName = "cpu";
-                        metricValue = metricsNode.get("cpuUsagePercent").asDouble();
+                        metricValue = metricsNode.has("cpuUsagePercent")
+                                ? metricsNode.get("cpuUsagePercent").asDouble()
+                                : 0.0;
                     }
                     if (i == 1) {
                         metricName = "memory";
-                        double memoryTotalBytes = metricsNode.get("memoryTotalBytes").asDouble();
-                        double memoryUsedBytes = metricsNode.get("memoryUsedBytes").asDouble();
-                        metricValue = (memoryUsedBytes * 100) / memoryTotalBytes;
+                        metricValue = metricsNode.has("memoryUsedBytes")
+                                ? metricsNode.get("memoryUsedBytes").asDouble()
+                                : 0.0;
                     }
                     if (i == 2) {
                         metricName = "disk";
-                        double diskReadBytesRate = metricsNode.get("diskReadBytes").asDouble();
-                        double diskWriteBytesRate = metricsNode.get("diskWriteBytesRate").asDouble();
-                        metricValue = diskReadBytesRate + diskWriteBytesRate;
+                        double diskReadBytesDelta = metricsNode.has("diskReadBytesDelta")
+                                ? metricsNode.get("diskReadBytesDelta").asDouble()
+                                : 0.0;
+                        double diskWriteBytesDelta = metricsNode.has("diskWriteBytesDelta")
+                                ? metricsNode.get("diskWriteBytesDelta").asDouble()
+                                : 0.0;
+                        metricValue = diskReadBytesDelta + diskWriteBytesDelta;
                     }
 
                     // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                    processThreshold("container", typeId,
+                    processThreshold("container", machineId,
                             metricName, metricValue, violationTime);
                 }
 
                 // Network
-                JsonNode networkNode = metricsNode.path("network");
+                JsonNode networkNode = metricsNode.path("networkDelta");
 
                 metricName = "network";
                 if (!networkNode.isMissingNode() && networkNode.isObject()) {
@@ -265,25 +253,30 @@ public class KafkaConsumerService {
                         String interfaceName = entry.getKey();
                         JsonNode interfaceData = entry.getValue();
 
-                        double bytesReceivedRate = interfaceData.path("bytesReceived").asDouble();
-                        double bytesSentRate = interfaceData.path("bytesSent").asDouble();
-                        metricValue = bytesReceivedRate + bytesSentRate;
+                        double txBytesDelta = interfaceData.has("txBytesDelta")
+                                ? interfaceData.get("txBytesDelta").asDouble()
+                                : 0.0;
+                        double rxBytesDelta = interfaceData.has("rxBytesDelta")
+                                ? interfaceData.get("rxBytesDelta").asDouble()
+                                : 0.0;
+                        metricValue = txBytesDelta + rxBytesDelta;
 
                         // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                        processThreshold("container", typeId,
+                        processThreshold("container", machineId,
                                 metricName, metricValue, violationTime);
                     }
                 } else {
-                    logger.warn("Container:{} - network 데이터를 찾을 수 없습니다.", typeId);
+                    logger.warn("Container:{} - network 데이터를 찾을 수 없습니다.", machineId);
                 }
-                logger.info("Kafka Record(Container) 처리 성공: {}", record.toString());
+
+                logger.info("Kafka Record(Container) 처리 성공: {}", record);
 
             } catch (InvalidJsonException e) {
-                logger.error("잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
+                logger.error("Container - 잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
             } catch (IllegalArgumentException e) {
-                logger.warn("JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
+                logger.warn("Container - JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
             } catch (Exception e) {
-                logger.error("예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
+                logger.error("Container - 예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
             }
         }
         // 수동 커밋
@@ -296,27 +289,27 @@ public class KafkaConsumerService {
      *      초과하면 DB에 저장하는 API를 호출한 다음, 필요하다면 로깅함.
      * 
      * @param type          처리할 데이터의 type ("host" or "container")
-     * @param typeId        처리할 데이터의 고유 id(ex. host001, container023)
+     * @param machineId      처리할 데이터의 머신 id
      * @param metricName    threshold를 비교할 메트릭의 이름(ex. "cpu", "disk",...)
-     * @param metricValue   threshold와 비교할 메트릭의 모니터링 값
+     * @param value         threshold와 비교할 메트릭의 모니터링 값
      * @param violationTime 메트릭을 받아온 시각
      */
-    public void processThreshold(String type, String typeId,
-                                 String metricName, Double metricValue, LocalDateTime violationTime) {
+    public void processThreshold(String type, String machineId,
+                                 String metricName, Double value, LocalDateTime violationTime) {
         // thresholdStore에서 해당 메트릭의 임계값을 가져옴
         Double threshold = thresholdStore.getThreshold(type, metricName);
 
         // 임계값을 정상적으로 받아오고 임계값 초과 시 API로 전송
-        if (threshold != null && metricValue > threshold) {
-            logger.warn("임계값 초과: {} -> {} = {} (기준값: {})", type, metricName, metricValue, threshold);
+        if (threshold != null && value > threshold) {
+            logger.warn("임계값 초과: {} -> {} = {} (임계값: {})", type, metricName, value, threshold);
 
             // 임계값 초과 데이터를 API 백엔드로 전송
             // API 호출은 대기시간이 있을 수 있으므로, sendThresholdViolation함수 내 호출에서 비동기 작업 처리한다.
-            thresholdService.sendThresholdViolation(typeId, metricName, metricValue, violationTime);
+            thresholdService.sendThresholdViolation(machineId, metricName, value, violationTime);
 
         }
         // 임계값을 정상적으로 받아오고, 임계값이 초과되지 않음.
-        else if (threshold != null && (metricValue < threshold || metricValue.equals(threshold))) {
+        else if (threshold != null && (value < threshold || value.equals(threshold))) {
             // Do nothing (정상값이고, 로깅 하지 않음)
         }
         // 임계값을 정상적으로 받아오지 못함.
