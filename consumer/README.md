@@ -12,12 +12,13 @@
 
 ### 필수 환경 변수
 
-| 변수명                           | 설명                                 |
-|----------------------------------|--------------------------------------|
-| `BOOTSTRAP_SERVER`              | Kafka 브로커 주소 (예: `localhost:9094`) |
-| `GROUP_ID`                      | Kafka Consumer 그룹 ID                |
-| `KAFKA_TOPIC_METRICS`           | 메트릭 메시지를 수신할 Kafka 토픽 이름 |
-| `KAFKA_GROUP_ID_STORAGE_GROUP`  | (선택) 데이터 저장소용 그룹 ID         |
+| 변수명                            | 설명                                               |
+|--------------------------------|--------------------------------------------------|
+| `BOOTSTRAP_SERVER`             | Kafka 브로커 주소 (예: `localhost:9094`, `kafka:9094`) |
+| `GROUP_ID`                     | Kafka Consumer 그룹 ID                             |
+| `KAFKA_TOPIC_HOST`             | 메트릭 메시지를 수신할 host 메세지를 담은 Kafka 토픽 이름            |
+| `KAFKA_TOPIC_CONTAINER`        | 메트릭 메시지를 수신할 container 메세지를 담은 Kafka 토픽 이름       |
+| `KAFKA_GROUP_ID_STORAGE_GROUP` | (선택) 데이터 저장소용 그룹 ID                              |
 
 > ⚠️ 모든 Kafka 토픽이 사전에 생성되어 있어야 하며, 그룹 ID 충돌이 없도록 관리해야 합니다.
 
@@ -41,7 +42,7 @@
 - **오프셋 전략**: `earliest`
 - **자동 커밋**: 비활성화
 - **최대 폴링 수**: 200건
-- **병렬 처리 수**: 6개 스레드
+- **병렬 처리 수**: 2개 스레드
 - **Ack 방식**: 수동 모드 (`manual`)
 
 ---
