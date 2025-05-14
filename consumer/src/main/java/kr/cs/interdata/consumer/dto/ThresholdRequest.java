@@ -9,16 +9,16 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class ThresholdRequest {
-    private String typeId;
-    private String metric;
+    private String machineId;
+    private String metricName;
     private Double value;
 
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss", shape = JsonFormat.Shape.STRING)
     private LocalDateTime timestamp; // 임계값을 넘은 시각
 
-    public ThresholdRequest(String typeId, String metric, Double value, LocalDateTime timestamp) {
-        this.typeId = typeId;
-        this.metric = metric;
+    public ThresholdRequest(String machineId, String metricName, Double value, LocalDateTime timestamp) {
+        this.machineId = machineId;
+        this.metricName = metricName;
         this.value = value;
         this.timestamp = timestamp;
     }
