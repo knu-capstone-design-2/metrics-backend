@@ -135,6 +135,8 @@ public class LocalHostResourceMonitor {
         //뭔가 이렇게 하면 안될거 같아서 다른 방법 찾아봐야할거 같은..
         //일단 생각해보기
         try {
+
+
             Path path = Paths.get(HOST_ID_FILE);
             if (Files.exists(path)) {
                 return Files.readString(path).trim();
