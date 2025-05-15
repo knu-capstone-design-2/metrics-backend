@@ -33,6 +33,14 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
+  data-collector:
+    build: .
+    container_name: data-collector
+    depends_on:
+      - kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
 #  consumer:
 #    build:
 #      context: ./consumer
