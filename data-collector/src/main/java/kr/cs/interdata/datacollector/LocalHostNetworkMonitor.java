@@ -1,4 +1,4 @@
-package kr.cs.interdata.datacollector;
+/**package kr.cs.interdata.datacollector;
 
 import oshi.SystemInfo;
 import oshi.hardware.NetworkIF;
