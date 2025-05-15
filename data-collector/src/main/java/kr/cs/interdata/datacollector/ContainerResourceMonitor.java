@@ -164,7 +164,7 @@ public class ContainerResourceMonitor {
             cpuUsagePercent = (delta / 1_000_000_000.0) * 100;//나노초 단위이기 때문에 초로 변환
             //1초 동안 1코어를 100% 사용했다고 가정할 때, 실제 사용량을 퍼센트로 환산
         }
-        jsonMap.put("cpuUsage", cpuUsagePercent);
+        jsonMap.put("cpuUsagePercent", cpuUsagePercent);
 
         // 메모리 정보 수집
         //memory.limit_in_bytes: 컨테이너에 할당된 최대 메모리
