@@ -87,7 +87,7 @@ class DataCollectorRunner implements CommandLineRunner {
             Map<String, Object> resultJson = new LinkedHashMap<>();
             resultJson.put("type", jsonMap.get("type"));
             resultJson.put("containerId", jsonMap.get("containerId"));
-            resultJson.put("cpuUsage", jsonMap.get("cpuUsage"));
+            resultJson.put("cpuUsagePercent", jsonMap.get("cpuUsagePercent"));
             resultJson.put("memoryUsedBytes", jsonMap.get("memoryUsedBytes"));
             resultJson.put("diskReadBytesDelta", deltaDiskRead);
             resultJson.put("diskWriteBytesDelta", deltaDiskWrite);
