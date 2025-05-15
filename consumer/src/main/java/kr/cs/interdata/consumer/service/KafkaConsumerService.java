@@ -3,6 +3,7 @@ package kr.cs.interdata.consumer.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.consumer.infra.MetricWebsocketHandler;
+import kr.cs.interdata.consumer.infra.MetricWebsocketSender;
 import kr.cs.interdata.consumer.infra.ThresholdStore;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -31,15 +31,18 @@ public class KafkaConsumerService {
     private final ThresholdStore thresholdStore;
     private final ThresholdService thresholdService;
     private final MetricWebsocketHandler metricWebsocketHandler;
+    private final MetricWebsocketSender metricWebsocketSender;
 
     @Autowired
     public KafkaConsumerService(
             ThresholdStore thresholdStore,
             ThresholdService thresholdService,
-            MetricWebsocketHandler metricWebsocketHandler) {
+            MetricWebsocketHandler metricWebsocketHandler,
+            MetricWebsocketSender metricWebsocketSender) {
         this.thresholdStore = thresholdStore;
         this.thresholdService = thresholdService;
         this.metricWebsocketHandler = metricWebsocketHandler;
+        this.metricWebsocketSender = metricWebsocketSender;
     }
 
     /**
@@ -69,7 +72,8 @@ public class KafkaConsumerService {
                 // *******************************
                 //      transmit to websocket
                 // *******************************
-                metricWebsocketHandler.sendMetricMessage(json);
+                // metricWebsocketHandler.sendMetricMessage(json);
+                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("hostId")),"host",metricsNode);
 
                 // ***********************
                 //      set timestamp
@@ -81,6 +85,7 @@ public class KafkaConsumerService {
                 // ***************************
                 double metricValue = 0.0;
                 String metricName = null;
+                boolean isNormal;
 
                 // type ID
                 String machineId = null;
@@ -141,8 +146,12 @@ public class KafkaConsumerService {
                         metricValue = txBytesDelta + rxBytesDelta;
 
                         // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                        processThreshold("host", machineId,
+                        isNormal = processThreshold("host", machineId,
                                 metricName, metricValue, violationTime);
+
+                        // 만약 어느 network에서 비정상값이 존재한다면
+                        // 비정상적인 네트워크가 존재한다는 것만 알리고 iteration을 중단한다.
+                        if (!isNormal)  break;
                     }
                 } else {
                     logger.warn("Host:{} - network 데이터를 찾을 수 없습니다.", machineId);
@@ -189,7 +198,8 @@ public class KafkaConsumerService {
                 // *******************************
                 //      transmit to websocket
                 // *******************************
-                metricWebsocketHandler.sendMetricMessage(json);
+                // metricWebsocketHandler.sendMetricMessage(json);
+                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("containerId")),"container",metricsNode);
 
                 // ***********************
                 //      set timestamp
@@ -202,6 +212,7 @@ public class KafkaConsumerService {
                 // ***************************
                 double metricValue = 0.0;
                 String metricName = null;
+                boolean isNormal;
 
                 // type ID
                 String machineId = null;
@@ -262,8 +273,12 @@ public class KafkaConsumerService {
                         metricValue = txBytesDelta + rxBytesDelta;
 
                         // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                        processThreshold("container", machineId,
+                        isNormal = processThreshold("container", machineId,
                                 metricName, metricValue, violationTime);
+
+                        // 만약 어느 network에서 비정상값이 존재한다면
+                        // 비정상적인 네트워크가 존재한다는 것만 알리고 iteration을 중단한다.
+                        if (!isNormal)  break;
                     }
                 } else {
                     logger.warn("Container:{} - network 데이터를 찾을 수 없습니다.", machineId);
@@ -294,9 +309,10 @@ public class KafkaConsumerService {
      * @param value         threshold와 비교할 메트릭의 모니터링 값
      * @param violationTime 메트릭을 받아온 시각
      */
-    public void processThreshold(String type, String machineId,
+    public boolean processThreshold(String type, String machineId,
                                  String metricName, Double value, LocalDateTime violationTime) {
         // thresholdStore에서 해당 메트릭의 임계값을 가져옴
+        boolean isNormal = false;
         Double threshold = thresholdStore.getThreshold(type, metricName);
 
         // 임계값을 정상적으로 받아오고 임계값 초과 시 API로 전송
@@ -305,17 +321,18 @@ public class KafkaConsumerService {
 
             // 임계값 초과 데이터를 API 백엔드로 전송
             // API 호출은 대기시간이 있을 수 있으므로, sendThresholdViolation함수 내 호출에서 비동기 작업 처리한다.
-            thresholdService.sendThresholdViolation(machineId, metricName, value, violationTime);
+            thresholdService.sendThresholdViolation(type, machineId, metricName, value, violationTime);
 
         }
         // 임계값을 정상적으로 받아오고, 임계값이 초과되지 않음.
         else if (threshold != null && (value < threshold || value.equals(threshold))) {
-            // Do nothing (정상값이고, 로깅 하지 않음)
+            isNormal = true;
         }
         // 임계값을 정상적으로 받아오지 못함.
         else {
             logger.warn("임계값이 조회되지 않았습니다.");
         }
+        return isNormal;
     }
 
     // json 파싱
