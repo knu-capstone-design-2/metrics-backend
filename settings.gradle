@@ -3,3 +3,5 @@ rootProject.name = 'monitoring'
 include 'producer'
 include 'consumer'
 include 'data-collector'
+include 'localhost-data-collector'
+
