@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 
 /**
 @SpringBootApplication(scanBasePackages = "kr.cs.interdata")
@@ -30,7 +34,8 @@ public class DataCollectorApplication {
 }
 @Component
 class DataCollectorRunner implements CommandLineRunner {
-
+    private static final Logger logger = LoggerFactory.getLogger(DataCollectorRunner.class); // 로거 선언
+    //private static final Logger logger = LoggerFactory.getLogger(DataCollectorRunner.class);
     private final KafkaProducerService kafkaProducerService;
 
     @Autowired
@@ -47,6 +52,14 @@ class DataCollectorRunner implements CommandLineRunner {
         Gson gson = new Gson();
 
         while (true) {
+            // 자기 자신은 수집과 전송하지 않음
+            String excludeSelf = System.getenv("EXCLUDE_SELF");
+            if ("true".equalsIgnoreCase(excludeSelf)) {
+                logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
+                //logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
+                try { Thread.sleep(5000); } catch (InterruptedException e) {}
+                continue;
+            }
             String json = ContainerResourceMonitor.collectContainerResources();
             Map<String, Object> jsonMap = gson.fromJson(json, Map.class);
 
