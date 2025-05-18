@@ -143,6 +143,79 @@ public class ContainerResourceMonitor {
         //1초 간격으로 누적 cpu 사용량을 2번 읽고 그 차이를 이욯해 1초 동안 CPU 사용률을 계산함.
         ///sys/fs/cgroup/cpuacct/cpuacct.usage 파일은 컨테이너 혹은 프로세스가 지금까지 사용한 누적 CPU 시간(나노초 단위)를 기록
         //https://velog.io/@hsh_124/cgroup-%EC%9D%84-%ED%86%B5%ED%95%B4-%EC%BB%A8%ED%85%8C%EC%9D%B4%EB%84%88%EC%9D%98-%EB%A6%AC%EC%86%8C%EC%8A%A4-%ED%99%95%EC%9D%B8%ED%95%98%EA%B8%B0
+        // ---- [CPU 사용량 측정: cgroup v1/v2 자동 지원, 함수 없이 직접 구현] ----
+        Long cpuUsageBefore = null;
+
+// 1. cgroup v1: /sys/fs/cgroup/cpuacct/cpuacct.usage (나노초)
+        String v1Path = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+        if (Files.exists(Paths.get(v1Path))) {
+            try {
+                String content = Files.readString(Paths.get(v1Path)).trim();
+                cpuUsageBefore = Long.parseLong(content);
+            } catch (IOException | NumberFormatException e) {
+                logger.log(Level.WARNING, "Failed to read v1 cpuacct.usage", e);
+            }
+        } else {
+            // 2. cgroup v2: /sys/fs/cgroup/cpu.stat (usage_usec, 마이크로초)
+            String v2Path = "/sys/fs/cgroup/cpu.stat";
+            if (Files.exists(Paths.get(v2Path))) {
+                try {
+                    for (String line : Files.readAllLines(Paths.get(v2Path))) {
+                        if (line.startsWith("usage_usec")) {
+                            String[] parts = line.split("\\s+");
+                            cpuUsageBefore = Long.parseLong(parts[1]) * 1000L; // 마이크로초 → 나노초
+                            break;
+                        }
+                    }
+                } catch (IOException | NumberFormatException e) {
+                    logger.log(Level.WARNING, "Failed to read v2 cpu.stat", e);
+                }
+            }
+        }
+
+// 1초 대기
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.WARNING, "Thread was interrupted during CPU usage measurement", e);
+        }
+
+// 두 번째 측정
+        Long cpuUsageAfter = null;
+        if (Files.exists(Paths.get(v1Path))) {
+            try {
+                String content = Files.readString(Paths.get(v1Path)).trim();
+                cpuUsageAfter = Long.parseLong(content);
+            } catch (IOException | NumberFormatException e) {
+                logger.log(Level.WARNING, "Failed to read v1 cpuacct.usage (after)", e);
+            }
+        } else {
+            String v2Path = "/sys/fs/cgroup/cpu.stat";
+            if (Files.exists(Paths.get(v2Path))) {
+                try {
+                    for (String line : Files.readAllLines(Paths.get(v2Path))) {
+                        if (line.startsWith("usage_usec")) {
+                            String[] parts = line.split("\\s+");
+                            cpuUsageAfter = Long.parseLong(parts[1]) * 1000L;
+                            break;
+                        }
+                    }
+                } catch (IOException | NumberFormatException e) {
+                    logger.log(Level.WARNING, "Failed to read v2 cpu.stat (after)", e);
+                }
+            }
+        }
+
+// CPU 사용률 계산
+        double cpuUsagePercent = -1;
+        if (cpuUsageBefore != null && cpuUsageAfter != null) {
+            long delta = cpuUsageAfter - cpuUsageBefore; // 나노초 단위
+            cpuUsagePercent = (delta / 1_000_000_000.0) * 100; // 1초 동안 1코어 100% 기준
+        }
+        jsonMap.put("cpuUsagePercent", cpuUsagePercent);
+
+        /**
         Long cpuUsageBefore=readLongFromFile("/sys/fs/cgroup/cpuacct/cpuacct.usage");
 
         try{
@@ -164,8 +237,8 @@ public class ContainerResourceMonitor {
             cpuUsagePercent = (delta / 1_000_000_000.0) * 100;//나노초 단위이기 때문에 초로 변환
             //1초 동안 1코어를 100% 사용했다고 가정할 때, 실제 사용량을 퍼센트로 환산
         }
-        jsonMap.put("cpuUsage", cpuUsagePercent);
-
+        jsonMap.put("cpuUsagePercent", cpuUsagePercent);
+**/
         // 메모리 정보 수집
         //memory.limit_in_bytes: 컨테이너에 할당된 최대 메모리
         //memory.usage_in_bytes: 현재 사용중인 메모리

@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   zookeeper:
     image: bitnami/zookeeper:3.9.2
@@ -33,14 +35,15 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
-#  consumer:
-#    build:
-#      context: ./consumer
-#      dockerfile: Dockerfile
-#    container_name: consumer-app
-#    depends_on:
-#      - kafka
-#    ports:
-#      - 8000:8000
-#    environment:
-#      SPRING_PROFILES_ACTIVE: docker
+  data-collector:
+    build:
+      context: ./data-collector   # data-collector 폴더 기준으로 빌드
+    container_name: data-collector
+    depends_on:
+      - kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+networks:
+  default:
+    name: metrics-backend_default
