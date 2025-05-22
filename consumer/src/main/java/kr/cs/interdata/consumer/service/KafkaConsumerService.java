@@ -73,7 +73,7 @@ public class KafkaConsumerService {
                 //      transmit to websocket
                 // *******************************
                 // metricWebsocketHandler.sendMetricMessage(json);
-                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("hostId")),"host",metricsNode);
+                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("hostId").asText()),"host",metricsNode);
 
                 // ***********************
                 //      set timestamp
@@ -199,7 +199,7 @@ public class KafkaConsumerService {
                 //      transmit to websocket
                 // *******************************
                 // metricWebsocketHandler.sendMetricMessage(json);
-                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("containerId")),"container",metricsNode);
+                metricWebsocketSender.handleMessage(String.valueOf(metricsNode.get("containerId").asText()),"container",metricsNode);
 
                 // ***********************
                 //      set timestamp

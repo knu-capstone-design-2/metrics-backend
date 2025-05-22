@@ -28,54 +28,57 @@ public class MetricWebsocketSender {
     }
 
     public void handleMessage(String machineId, String type, Object metricData) {
-        try {
-            // API 호출로 Target ID 가져오기
-            String requestUrl = "/api/inventory/" + machineId + "/" + type;
+        if (machineId == null || type == null || metricData == null) {
+            logger.error("Null parameter detected - machineId: {}, type: {}, metricData: {}", machineId, type, metricData);
+            return;
+        }
 
-            Mono<String> responseMono = webClient
-                    .get()
-                    .uri(requestUrl)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .doOnError(e -> logger.error("Failed to call API: {}", e.getMessage()));
+        String requestUrl = "/api/inventory/" + machineId + "/" + type;
 
-            // 비동기 응답 처리
-            responseMono.subscribe(targetId -> {
-                if (targetId == null || targetId.isEmpty()) {
-                    logger.warn("Unique ID not found for Machine ID: {}", machineId);
-                    return;
-                }
-
-                try {
-                    // metricData를 Map으로 변환
-                    Map<String, Object> dataMap = objectMapper.convertValue(
-                            metricData,
-                            new TypeReference<Map<String, Object>>() {}
-                    );
-
-                    // hostId/containerId 키의 값을 targetId로 변경
-                    if (dataMap.containsKey("hostId")) {
-                        dataMap.put("hostId", targetId);
-                    } else if (dataMap.containsKey("containerId")) {
-                        dataMap.put("containerId", targetId);
-                    } else {
-                        logger.warn("hostId/containerId not found in the metric data");
+        webClient
+                .get()
+                .uri(requestUrl)
+                .retrieve()
+                .bodyToMono(String.class)
+                .doOnError(e -> logger.error("Failed to call API: {}", e.getMessage()))
+                .flatMap(targetId -> {
+                    if (targetId == null || targetId.isEmpty()) {
+                        logger.warn("Unique ID not found for Machine ID: {}", machineId);
+                        return Mono.empty();
                     }
 
-                    // JSON 문자열로 변환
-                    String jsonMessage = objectMapper.writeValueAsString(dataMap);
+                    try {
+                        Map<String, Object> dataMap = objectMapper.convertValue(
+                                metricData,
+                                new TypeReference<Map<String, Object>>() {}
+                        );
 
-                    // WebSocket으로 전송
-                    metricWebsocketHandler.sendMetricMessage(jsonMessage);
+                        if (dataMap.containsKey("hostId")) {
+                            dataMap.put("hostId", targetId);
+                            logger.info("[hostId : {}] convert machine Id to target Id successfully.", targetId);
+                        } else if (dataMap.containsKey("containerId")) {
+                            dataMap.put("containerId", targetId);
+                            logger.info("[containerId : {}] convert machine Id to target Id successfully.", targetId);
+                        } else {
+                            logger.warn("hostId/containerId not found in the metric data");
+                        }
 
-                } catch (Exception e) {
-                    logger.error("Failed to process message for Machine ID: {}, Type: {}. Error: {}", machineId, type, e.getMessage());
-                }
-            });
+                        String jsonMessage = objectMapper.writeValueAsString(dataMap);
 
-        } catch (Exception e) {
-            logger.error("Failed to process message for Machine ID: {}, Type: {}. Error: {}", machineId, type, e.getMessage());
-        }
+                        // WebSocket 전송을 Mono로 래핑
+                        //return Mono.fromRunnable(() -> metricWebsocketHandler.sendMetricMessage(jsonMessage));
+
+                        // Mono.just로 dataMap emit, doOnNext로 WebSocket 전송
+                        return Mono.just(dataMap)
+                                .doOnNext(map -> metricWebsocketHandler.sendMetricMessage(jsonMessage));
+
+                    } catch (Exception e) {
+                        logger.error("Failed to process message for Machine ID: {}, Type: {}. Error: {}", machineId, type, e.getMessage());
+                        return Mono.error(e);
+                    }
+                })
+                .subscribe();
     }
+
 
 }
