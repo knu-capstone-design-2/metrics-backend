@@ -57,7 +57,7 @@ class DataCollectorRunner implements CommandLineRunner {
             if ("true".equalsIgnoreCase(excludeSelf)) {
                 logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
                 //logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
-                try { Thread.sleep(5000); } catch (InterruptedException e) {}
+                try { Thread.sleep(1000); } catch (InterruptedException e) {}
                 continue;
             }
             String json = ContainerResourceMonitor.collectContainerResources();
@@ -82,8 +82,8 @@ class DataCollectorRunner implements CommandLineRunner {
                 long deltaSent = currSent - prevSent;
 
                 // 네트워크 속도(Bps, 초당 바이트)
-                long rxBps = deltaRecv / 5;
-                long txBps = deltaSent / 5;
+                long rxBps = deltaRecv;
+                long txBps = deltaSent;
 
                 Map<String, Object> ifaceDelta = new HashMap<>();
                 ifaceDelta.put("rxBytesDelta", deltaRecv);
@@ -119,7 +119,7 @@ class DataCollectorRunner implements CommandLineRunner {
             prevDiskWriteBytes = currDiskWriteBytes;
 
             try {
-                Thread.sleep(5000);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 System.out.println("스레드가 인터럽트되었습니다.");
             }
