@@ -66,8 +66,8 @@ public class LocalhostDataCollectorApplication {
                     long deltaSent = currSent - prevSent;
 
                     // 네트워크 속도(Bps, 초당 바이트)
-                    long rxBps = deltaRecv / 5;
-                    long txBps = deltaSent / 5;
+                    long rxBps = deltaRecv;
+                    long txBps = deltaSent ;
 
                     Map<String, Object> ifaceDelta = new HashMap<>();
                     ifaceDelta.put("rxBytesDelta", deltaRecv);
@@ -109,7 +109,7 @@ public class LocalhostDataCollectorApplication {
                 prevDiskWriteBytes = currDiskWriteBytes;
 
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(1000);
                 } catch (InterruptedException ie) {
                     System.out.println("Interrupted, but monitoring continues.");
                 }

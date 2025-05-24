@@ -130,7 +130,8 @@ public class LocalHostResourceMonitor {
         return totalWrites;
     }
 
-    private String getOrCreateHostId() {//이 부분 수정해야함.
+    private String getOrCreateHostId() {
+        //이 부분 수정해야함.
         //로컬 파일에 저장된 고유 호스트 ID를 읽거나, 없으면 새로 생성
         //뭔가 이렇게 하면 안될거 같아서 다른 방법 찾아봐야할거 같은..
         //일단 생각해보기
