@@ -9,6 +9,7 @@ import com.google.gson.Gson;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 public class LocalHostNetworkMonitor {
     private final List<NetworkIF> networkIFS;
@@ -18,6 +19,19 @@ public class LocalHostNetworkMonitor {
         HardwareAbstractionLayer hal = si.getHardware();
         this.networkIFS = hal.getNetworkIFs();
     }
+
+    /**
+    public List<String> getMacAddresses() {
+        List<String> macs = new ArrayList<>();
+        for (NetworkIF net : networkIFS) {
+            String mac = net.getMacaddr();
+            if (mac != null && !mac.isEmpty() && !mac.equals("00:00:00:00:00:00")) {
+                macs.add(mac);
+            }
+        }
+        return macs;
+    }
+     **/
 
     public Map<String, Object> getNetworkInfoJson() {
         Map<String, Object> result = new LinkedHashMap<>();
