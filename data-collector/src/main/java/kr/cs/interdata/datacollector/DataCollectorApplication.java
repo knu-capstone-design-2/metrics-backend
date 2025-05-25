@@ -14,9 +14,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+//컨테이너 내부에서 주기적으로 리소스(CPU, 메모리, 디스크, 네트워크 등) 사용량을 수집
+//카프카로 전송
 @SpringBootApplication(scanBasePackages = "kr.cs.interdata")
 public class DataCollectorApplication {
     public static void main(String[] args) {
+        //스프링 부트 애플리케이션 실행
         SpringApplication app = new SpringApplication(DataCollectorApplication.class);
         app.setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
         app.run(args);
@@ -35,6 +38,7 @@ class DataCollectorRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        //초기값(누적값) 저장 -> 뱐화량 계산을 위해서
         long prevCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
         long prevDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
         long prevDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
@@ -43,7 +47,7 @@ class DataCollectorRunner implements CommandLineRunner {
         Gson gson = new Gson();
 
         while (true) {
-            // 자기 자신은 수집과 전송하지 않음
+            // 자기 자신은 수집과 전송하지 않음 -> 자기 자신을 수집하는 로직은 따로 만들어 보려고 함.
             String excludeSelf = System.getenv("EXCLUDE_SELF");
             if ("true".equalsIgnoreCase(excludeSelf)) {
                 logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
@@ -51,22 +55,22 @@ class DataCollectorRunner implements CommandLineRunner {
                 continue;
             }
 
-            // 누적값만 수집
+            // 현재 누적값  수집
             long currCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
             long currDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
             long currDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
             Map<String, Long[]> currNetStats = ContainerResourceMonitor.getNetworkStats();
             Map<String, Object> resourceMap = ContainerResourceMonitor.collectContainerResourceRaw();
 
-            // CPU 사용률(1초 기준, 1코어 100%)
+            // CPU 사용률 계산(1초 기준, 1코어 100%)
             long deltaCpuNano = currCpuUsageNano - prevCpuUsageNano;
             double cpuUsagePercent = (deltaCpuNano / 1_000_000_000.0) * 100;
 
-            // 디스크 변화량
+            // 디스크 변화량 계산(읽기/쓰기)
             long deltaDiskRead = currDiskReadBytes - prevDiskReadBytes;
             long deltaDiskWrite = currDiskWriteBytes - prevDiskWriteBytes;
 
-            // 네트워크 변화량 및 속도
+            // 네트워크 변화량 및 속도 계산 -> 속도는 1초마다 받아오면 수신 및 송신 바이트와 동일하여 없애도 될 듯
             Map<String, Map<String, Object>> netDelta = new HashMap<>();
             for (String iface : currNetStats.keySet()) {
                 Long[] curr = currNetStats.get(iface);
@@ -75,24 +79,25 @@ class DataCollectorRunner implements CommandLineRunner {
                 long deltaSent = curr[1] - prev[1];
 
                 Map<String, Object> ifaceDelta = new HashMap<>();
-                ifaceDelta.put("rxBytesDelta", deltaRecv);
-                ifaceDelta.put("txBytesDelta", deltaSent);
+                ifaceDelta.put("rxBytesDelta", deltaRecv);//1초간 수신 바이트
+                ifaceDelta.put("txBytesDelta", deltaSent);//1초간 송신 바이트
                 ifaceDelta.put("rxBps", deltaRecv); // 1초마다 반복이므로 deltaRecv가 Bps
                 ifaceDelta.put("txBps", deltaSent);
                 netDelta.put(iface, ifaceDelta);
 
+                //다음 루프에서 사용할 이전값 갱신
                 prevNetStats.put(iface, curr);
             }
 
             // 최종 JSON 생성
             Map<String, Object> resultJson = new LinkedHashMap<>();
-            resultJson.put("type", resourceMap.get("type"));
-            resultJson.put("containerId", resourceMap.get("containerId"));
-            resultJson.put("cpuUsagePercent", cpuUsagePercent);
-            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));
-            resultJson.put("diskReadBytesDelta", deltaDiskRead);
-            resultJson.put("diskWriteBytesDelta", deltaDiskWrite);
-            resultJson.put("networkDelta", netDelta);
+            resultJson.put("type", resourceMap.get("type"));//컨테이너 타입
+            resultJson.put("containerId", resourceMap.get("containerId"));//컨테이너 아이디
+            resultJson.put("cpuUsagePercent", cpuUsagePercent);//CPU 사용률(%)
+            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));//메모리 사용량(바이트)
+            resultJson.put("diskReadBytesDelta", deltaDiskRead);//디스크 읽기 변화량(바이트)
+            resultJson.put("diskWriteBytesDelta", deltaDiskWrite);//디스크 쓰기 변화량(바이트)
+            resultJson.put("networkDelta", netDelta);//네트워크 인터페이스별 변화량/속도
 
             String jsonPayload = gson.toJson(resultJson);
 
@@ -108,6 +113,7 @@ class DataCollectorRunner implements CommandLineRunner {
             prevDiskWriteBytes = currDiskWriteBytes;
             prevNetStats = currNetStats;
 
+            //1초 대기 후 반복
             try {
                 Thread.sleep(1000); // 1초마다 반복
             } catch (InterruptedException e) {
