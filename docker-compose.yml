@@ -44,6 +44,19 @@ services:
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
+  consumer:
+    build:
+      context: ./consumer   # consumer 폴더 기준으로 빌드
+    container_name: consumer
+    depends_on:
+      - kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 8000:8000
+
 networks:
   default:
     name: metrics-backend_default
