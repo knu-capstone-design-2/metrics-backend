@@ -55,10 +55,8 @@ public class MetricWebsocketSender {
 
                         if (dataMap.containsKey("hostId")) {
                             dataMap.put("hostId", targetId);
-                            logger.info("[hostId : {}] convert machine Id to target Id successfully.", targetId);
                         } else if (dataMap.containsKey("containerId")) {
                             dataMap.put("containerId", targetId);
-                            logger.info("[containerId : {}] convert machine Id to target Id successfully.", targetId);
                         } else {
                             logger.warn("hostId/containerId not found in the metric data");
                         }

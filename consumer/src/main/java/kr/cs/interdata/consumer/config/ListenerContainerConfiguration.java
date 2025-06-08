@@ -8,6 +8,7 @@ import java.util.Collection;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -18,17 +19,20 @@ import org.springframework.kafka.listener.*;
 @Configuration
 public class ListenerContainerConfiguration {
 
-    String bootstrap_server = "${KAFKA_TOPIC_HOST}";
+    @Value("${BOOTSTRAP_SERVER}")
+    private String bootstrapServers;
+
+    @Value("${KAFKA_GROUP_ID_STORAGE_GROUP}")
+    private String groupId;
 
     @Bean
     public KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, String>> customContainerFactory() {
         Map<String, Object> props = new HashMap<>();
 
-        //props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9094");     // Kafka 서버 주소 (브로커 리스트). 클러스터에 처음 연결할 때 사용하는 주소
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092");           // kafka 서버 주소 -> container용
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);           // kafka 서버 주소 -> container용
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);  // 메시지 키를 역직렬화할 클래스 (여기선 문자열로 처리)
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);    // 메시지 값을 역직렬화할 클래스 (여기서도 문자열)
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "data-stroage-group");    // 이 Consumer가 속한 Consumer Group ID (같은 Group ID면 하나만 처리함)
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);    // 이 Consumer가 속한 Consumer Group ID (같은 Group ID면 하나만 처리함)
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");     // 이전에 커밋된 offset이 없을 경우 가장 처음(offset 0)부터 소비
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);  // Kafka가 자동으로 offset을 커밋하지 않도록 설정
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 200);     // 한 번 poll() 호출 시 가져올 최대 메시지 수

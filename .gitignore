@@ -37,4 +37,6 @@ out/
 .vscode/
 
 ### .env ###
-consumer/.env
+**/envfile.properties
+**/env.properties
+**/.env
