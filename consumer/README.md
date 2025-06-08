@@ -14,6 +14,20 @@
 
 ---
 
+## 주요 기술 스택 및 의존성
+
+- Java 21
+- Spring Boot 3.4.4
+- Spring Web (MVC)
+- Spring WebSocket
+- Spring WebFlux (Reactive Web)
+- Spring Kafka
+- Lombok
+- Jackson (JavaTime 지원)
+- JUnit 5
+
+---
+
 ## 환경 변수 및 설정
 
 ### 필수 환경 변수
@@ -27,10 +41,11 @@
 | `KAFKA_TOPIC_CONTAINER`           | container 메트릭 메시지용 Kafka 토픽 이름 (producer와 동일하게 설정)           |
 | `KAFKA_GROUP_ID_STORAGE_GROUP`    | 데이터 저장소용 그룹 ID (코드 사용자가 임의로 지정 가능)                           |
 | `SOCKET_ALLOWED_ADDR`             | 소켓 통신을 허용할 주소 (ex: `http://localhost:3000`)                  |
-| `API_BASE_URL`                    | api 통신을 위한 base url (ex: `http://api-backend:8080/api`)      |
+| `API_BASE_URL`                    | api 통신을 위한 base url (ex: `http://api-backend:8004`)          |
 
 > ⚠️ **Kafka 토픽 이름은 반드시 producer 모듈의 토픽과 일치시켜야 합니다.**
 > ⚠️ 모든 Kafka 토픽이 사전에 생성되어 있어야 하며, 그룹 ID 충돌이 없도록 관리해야 합니다.
+> ⚠️ (참고사항) consumer의 포트번호는 '8000'이며, api-backend의 포트번호는 '8004'입니다.
 
 ### 환경 파일 생성 방법
 
