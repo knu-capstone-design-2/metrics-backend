@@ -30,18 +30,15 @@ public class KafkaConsumerService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ThresholdStore thresholdStore;
     private final ThresholdService thresholdService;
-    private final MetricWebsocketHandler metricWebsocketHandler;
     private final MetricWebsocketSender metricWebsocketSender;
 
     @Autowired
     public KafkaConsumerService(
             ThresholdStore thresholdStore,
             ThresholdService thresholdService,
-            MetricWebsocketHandler metricWebsocketHandler,
             MetricWebsocketSender metricWebsocketSender) {
         this.thresholdStore = thresholdStore;
         this.thresholdService = thresholdService;
-        this.metricWebsocketHandler = metricWebsocketHandler;
         this.metricWebsocketSender = metricWebsocketSender;
     }
 
@@ -62,8 +59,6 @@ public class KafkaConsumerService {
         List<Mono<Void>> asyncTasks = new ArrayList<>(); // 비동기 작업을 저장할 리스트
 
         for (ConsumerRecord<String, String> record : records) {
-            // TODO: Producer에서 key값을 입력해 데이터를 넘겨주는지 확인하기
-            //String id = record.key();
             String json = record.value();
 
             try {
@@ -188,8 +183,6 @@ public class KafkaConsumerService {
         List<Mono<Void>> asyncTasks = new ArrayList<>(); // 비동기 작업을 저장할 리스트
 
         for (ConsumerRecord<String, String> record : records) {
-            // TODO: Producer에서 key값을 입력해 데이터를 넘겨주는지 확인하기
-            //String id = record.key();
             String json = record.value();
 
             try {

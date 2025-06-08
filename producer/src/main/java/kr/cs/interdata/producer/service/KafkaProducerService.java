@@ -31,7 +31,7 @@ public class KafkaProducerService {
 
         String topic;
         if ("localhost".equalsIgnoreCase(type)) {
-            topic = "host";
+            topic = "localhost";
         } else {
             topic = "container";
         }
