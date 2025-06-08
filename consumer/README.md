@@ -14,6 +14,20 @@
 
 ---
 
+## 주요 기술 스택 및 의존성
+
+- Java 21
+- Spring Boot 3.4.4
+- Spring Web (MVC)
+- Spring WebSocket
+- Spring WebFlux (Reactive Web)
+- Spring Kafka
+- Lombok
+- Jackson (JavaTime 지원)
+- JUnit 5
+
+---
+
 ## 환경 변수 및 설정
 
 ### 필수 환경 변수
