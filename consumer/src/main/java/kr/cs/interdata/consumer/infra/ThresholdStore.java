@@ -39,7 +39,7 @@ public class ThresholdStore {
 
     /**
      * 특정 타입(type)과 메트릭(metric)에 해당하는 임계값을 반환한다.
-     * 값이 없으면 null을 반환한다.
+     * 값이 없으면 null을 반환한다. 
      * 예시 : thresholdStore.getThreshold("host", "cpu"); // → 80.0
      *
      * @param type   머신 종류

@@ -59,4 +59,6 @@ services:
 
 networks:
   default:
-    name: metrics-backend_default
+    name: monitoring_network
+    external: true
+    #name: metrics-backend_default

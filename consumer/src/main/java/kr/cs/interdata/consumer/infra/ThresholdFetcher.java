@@ -11,9 +11,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.Map;
 
 /**
- * 주기적으로 외부 API에서 경계값을 조회하고 이를 ThresholdStore에 업데이트하는 클래스입니다.
+ * - Spring WebFlux 기반 비동기 클라이언트 호출 메서드
+ * - 주기적으로 외부 API에서 경계값을 조회하고 이를 ThresholdStore에 업데이트하는 클래스입니다.
  *
- * 이 클래스는 `@Scheduled` 어노테이션을 사용하여 1분마다 외부 API에서 경계값을 가져와
+ * - 이 클래스는 `@Scheduled` 어노테이션을 사용하여 1분마다 외부 API에서 경계값을 가져와
  * 이를 `ThresholdStore`에 저장하거나 갱신합니다. API 호출 및 응답 처리 과정은 비동기적으로 이루어집니다.
  *
  * 주요 기능:
