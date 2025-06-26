@@ -116,7 +116,7 @@ public class KafkaConsumerService {
                         metricValue = diskReadBytesDelta + diskWriteBytesDelta;
                     }
 
-                    // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
+                    // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
                     processThreshold("host", machineId,
                             metricName, metricValue, violationTime);
                 }
@@ -241,7 +241,7 @@ public class KafkaConsumerService {
                         metricValue = diskReadBytesDelta + diskWriteBytesDelta;
                     }
 
-                    // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
+                    // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
                     processThreshold("container", machineId,
                             metricName, metricValue, violationTime);
                 }
