@@ -17,7 +17,7 @@ public class LocalhostDataCollectorApplication {
 
         // Kafka Producer 설정
         Properties props = new Properties();
-        props.put("bootstrap.servers", "localhost:9094");
+        props.put("bootstrap.servers", "kafka:9092");
 
         //props.put("bootstrap.servers", "host.docker.internal:9092");
         //props.put("bootstrap.servers", "host.docker.internal:9092");
