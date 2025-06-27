@@ -1,20 +1,136 @@
-#version: "3.9"
+#######################
+#   for 서비스 따로 실행
+#######################
+
+#services:
+#  zookeeper:
+#    image: bitnami/zookeeper:3.9.2
+#    container_name: zookeeper
+#    ports:
+#      - 2181:2181
+#    environment:
+#      ZOOKEEPER_CLIENT_PORT: 2181
+#      ALLOW_ANONYMOUS_LOGIN: "yes"
+#
+#  kafka:
+#    image: bitnami/kafka:3.7.0
+#    container_name: kafka
+#    ports:
+#      - 9094:9094
+#    environment:
+#      ALLOW_PLAINTEXT_LISTENER: "yes"
+#      KAFKA_ENABLE_KRAFT: "no"
+#      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+#      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:9094
+#      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+#      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+#
+#  kafka-ui:
+#    image: provectuslabs/kafka-ui:v0.7.2
+#    container_name: kafka-ui
+#    depends_on:
+#      - kafka
+#    ports:
+#      - 8080:8080
+#    environment:
+#      KAFKA_CLUSTERS_0_NAME: local
+#      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+#
+#  data-collector:
+#    build:
+#      context: ./data-collector   # data-collector 폴더 기준으로 빌드
+#    container_name: data-collector
+#    depends_on:
+#      - kafka
+#    environment:
+#      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+#
+#  consumer:
+#    build:
+#      context: ./consumer   # consumer 폴더 기준으로 빌드
+#    container_name: consumer
+#    depends_on:
+#      - kafka
+#    environment:
+#      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#    ports:
+#      - 8000:8000
+#
+#networks:
+#  default:
+#    name: monitoring_network
+#    external: true
+#    #name: metrics-backend_default
+
+
+#################################################
+# for 서비스 한꺼번에 실행(단, 상위 폴더로 이동 필요)
+#################################################
 
 services:
+  # MySQL DB 서비스
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: monitoring_db
+      MYSQL_USER: monitoring_user
+      MYSQL_PASSWORD: monitoring_pass
+      TZ: Asia/Seoul
+    volumes:
+      - ./db/mysql/data:/var/lib/mysql
+      - ./db/mysql/config:/etc/mysql/conf.d
+      - ./db/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - monitoring_network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # API Backend 서비스
+  api-backend:
+    build: ./api-backend
+    container_name: api-backend
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: jdbc:mysql://mysql-db:3306/monitoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      DATABASE_USERNAME: monitoring_user
+      DATABASE_PASSWORD: monitoring_pass
+      TZ: Asia/Seoul
+    networks:
+      - monitoring_network
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+  # Metrics Backend 서비스 (기존 설정 유지)
   zookeeper:
     image: bitnami/zookeeper:3.9.2
     container_name: zookeeper
     ports:
-      - 2181:2181
+      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ALLOW_ANONYMOUS_LOGIN: "yes"
+    networks:
+      - monitoring_network
 
   kafka:
     image: bitnami/kafka:3.7.0
     container_name: kafka
     ports:
-      - 9094:9094
+      - "9094:9094"
     environment:
       ALLOW_PLAINTEXT_LISTENER: "yes"
       KAFKA_ENABLE_KRAFT: "no"
@@ -23,6 +139,10 @@ services:
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - monitoring_network
+    depends_on:
+      - zookeeper
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
@@ -30,35 +150,50 @@ services:
     depends_on:
       - kafka
     ports:
-      - 8080:8080
+      - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      - monitoring_network
 
   data-collector:
-    build:
-      context: ./data-collector   # data-collector 폴더 기준으로 빌드
+    build: ./metrics-backend/data-collector  # 경로 수정
     container_name: data-collector
     depends_on:
       - kafka
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TZ: Asia/Seoul
+    networks:
+      - monitoring_network
+
+  localhost-data-collector:
+    build: ./metrics-backend/localhost-data-collector  # 경로 수정
+    container_name: localhost-data-collector
+    depends_on:
+      - kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TZ: Asia/Seoul
+    networks:
+      - monitoring_network
 
   consumer:
-    build:
-      context: ./consumer   # consumer 폴더 기준으로 빌드
+    build: ./metrics-backend/consumer  # 경로 수정
     container_name: consumer
     depends_on:
       - kafka
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TZ: Asia/Seoul
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - 8000:8000
+      - "8000:8000"
+    networks:
+      - monitoring_network
 
 networks:
-  default:
-    name: monitoring_network
+  monitoring_network:
     external: true
-    #name: metrics-backend_default
