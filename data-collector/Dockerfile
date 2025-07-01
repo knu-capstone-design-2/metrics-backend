@@ -1,7 +1,17 @@
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+
+# 비root 사용자 생성 및 권한 부여
+RUN adduser --disabled-password --gecos '' appuser \
+  && chown -R appuser:appuser /app
+
 COPY build/libs/data-collector-0.0.1-SNAPSHOT.jar app.jar
+
+USER appuser
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
 
 #FROM openjdk:17-jdk-slim
 
