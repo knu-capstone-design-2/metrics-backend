@@ -4,9 +4,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 
-@Configuration
+@Configuration("DataCollectorPropertyConfig")
 @PropertySources({
-        @PropertySource("classpath:properties/env.properties") //env.properties 파일 소스 등록
+        @PropertySource("classpath:properties/envdc.properties") //envdc.properties 파일 소스 등록
 })
-public class PropertyConfig {
+public class DataCollectorPropertyConfig {
 }

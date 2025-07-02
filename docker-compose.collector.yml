@@ -3,7 +3,7 @@ services:
     build: ./metrics-backend/data-collector  # 경로 수정
     container_name: data-collector
     environment:
-      - spring.kafka.bootstrap-servers=${BOOTSTRAP_SERVER}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=${MONITORING_BOOTSTRAP_SERVER}
       - TZ=Asia/Seoul
     networks:
       - monitoring_network
@@ -12,7 +12,6 @@ services:
     build: ./metrics-backend/localhost-data-collector  # 경로 수정
     container_name: localhost-data-collector
     environment:
-    - spring.kafka.bootstrap-servers=${BOOTSTRAP_SERVER}
     - TZ=Asia/Seoul
     networks:
       - monitoring_network

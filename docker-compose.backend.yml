@@ -47,7 +47,6 @@ services:
     container_name: consumer
     environment:
       - TZ=Asia/Seoul
-      - spring.kafka.bootstrap-servers=${BOOTSTRAP_SERVER}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
