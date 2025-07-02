@@ -40,3 +40,6 @@ out/
 **/envfile.properties
 **/env.properties
 **/.env
+**/envdc.properties
+**/envldc.properties
+**/envp.properties

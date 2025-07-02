@@ -4,29 +4,41 @@ import com.google.gson.Gson;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.google.gson.Gson;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+@SpringBootApplication
 public class LocalhostDataCollectorApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(LocalhostDataCollectorApplication.class, args);
+    }
+}
 
-    @Value("${KAFKA_BOOTSTRAP_SERVER}")
-    private static String kafkaBootstrapServer;
+@Component
+class KafkaProducerRunner implements CommandLineRunner {
 
-    public static void main(String[] args) throws Exception{
+    @Value("${LOCALHOSTDATACOLLECTOR_BOOTSTRAP_SERVER}")
+    private String kafkaBootstrapServer;
 
+    @Override
+    public void run(String... args) throws Exception {
         // Kafka Producer 설정
         Properties props = new Properties();
         props.put("bootstrap.servers", kafkaBootstrapServer);
-
-        //props.put("bootstrap.servers", "host.docker.internal:9092");
-        //props.put("bootstrap.servers", "host.docker.internal:9092");
-        //props.put("bootstrap.servers", "localhost:9092"); // Kafka 브로커 주소 (필요시 수정)
         props.put("acks", "all");
         props.put("retries", 0);
         props.put("batch.size", 16384);
@@ -121,6 +133,4 @@ public class LocalhostDataCollectorApplication {
             }
         }
     }
-
-
 }
