@@ -44,8 +44,6 @@ dependencies {
     // JSON 예쁘게 출력용 Jackson
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
 
-    // (Optional) 로깅 - 필요시 사용
-    implementation 'org.slf4j:slf4j-simple:2.0.12'
 }
 
 
