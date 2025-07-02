@@ -1,10 +1,5 @@
 package kr.cs.interdata.datacollector;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.exception.NotFoundException;
-import com.github.dockerjava.api.model.Container;
-import com.github.dockerjava.api.model.Network;
-import com.github.dockerjava.core.DockerClientBuilder;
 import com.google.gson.Gson;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.producer.service.KafkaProducerService;
@@ -20,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 //컨테이너 내부에서 주기적으로 리소스(CPU, 메모리, 디스크, 네트워크 등) 사용량을 수집
 //카프카로 전송
@@ -51,13 +45,7 @@ class DataCollectorRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        connectAllContainersToMonitoringNetwork();
 
-        // 주기적 네트워크 체크 스케줄러 시작
-        scheduler.scheduleAtFixedRate(
-                this::connectNewContainersToMonitoringNetwork,
-                0, NETWORK_CHECK_INTERVAL_SECONDS, TimeUnit.SECONDS
-        );
 
         //초기값(누적값) 저장 -> 뱐화량 계산을 위해서
         long prevCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
@@ -146,88 +134,6 @@ class DataCollectorRunner implements CommandLineRunner {
         }
     }
 
-    // 새로 추가된 컨테이너 연결 메서드
-    private void connectNewContainersToMonitoringNetwork() {
-        try (DockerClient dockerClient = DockerClientBuilder.getInstance().build()) {
-            // 현재 실행 중인 모든 컨테이너 조회
-            List<Container> currentContainers = dockerClient.listContainersCmd().exec();
-            Set<String> currentContainerIds = currentContainers.stream()
-                    .map(Container::getId)
-                    .collect(Collectors.toSet());
-
-            // 새로 추가된 컨테이너 필터링
-            Set<String> newContainerIds = new HashSet<>(currentContainerIds);
-            newContainerIds.removeAll(connectedContainerIds);
-
-            // 새 컨테이너 연결
-            for (Container container : currentContainers) {
-                if (newContainerIds.contains(container.getId())) {
-                    try {
-                        dockerClient.connectToNetworkCmd()
-                                .withNetworkId(MONITORING_NETWORK)
-                                .withContainerId(container.getId())
-                                .exec();
-                        connectedContainerIds.add(container.getId());
-                        logger.info("새 컨테이너 연결됨: {} -> {}", container.getNames()[0], MONITORING_NETWORK);
-                    } catch (Exception e) {
-                        logger.warn("컨테이너 연결 실패: {} - {}", container.getNames()[0], e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("새 컨테이너 연결 작업 실패: {}", e.getMessage());
-        }
-    }
-
-    // 모든 컨테이너를 모니터링 네트워크에 연결
-    private void connectAllContainersToMonitoringNetwork() {
-        try (DockerClient dockerClient = DockerClientBuilder.getInstance().build()) {
-            // 네트워크 생성/확인
-            try {
-                dockerClient.inspectNetworkCmd().withNetworkId(MONITORING_NETWORK).exec();
-            } catch (NotFoundException e) {
-                dockerClient.createNetworkCmd().withName(MONITORING_NETWORK).exec();
-            }
-
-            // 모든 실행 중인 컨테이너 연결
-            List<Container> containers = dockerClient.listContainersCmd().exec();
-            for (Container container : containers) {
-                try {
-                    dockerClient.connectToNetworkCmd()
-                            .withNetworkId(MONITORING_NETWORK)
-                            .withContainerId(container.getId())
-                            .exec();
-                    connectedContainerIds.add(container.getId()); // 연결된 ID 저장
-                    logger.info("컨테이너 연결됨: {} -> {}", container.getNames()[0], MONITORING_NETWORK);
-                } catch (Exception e) {
-                    logger.warn("컨테이너 연결 실패: {} - {}", container.getNames()[0], e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            logger.error("초기 네트워크 설정 실패: {}", e.getMessage());
-        }
-    }
-
-    //모든 네트워크에 연결된 컨테이너 ID 조회
-    private Set<String> getAllConnectedContainerIds() {
-        Set<String> containerIds = new HashSet<>();
-
-        try (DockerClient dockerClient = DockerClientBuilder.getInstance().build()) {
-            // 1. 모든 네트워크 조회
-            List<Network> networks = dockerClient.listNetworksCmd().exec();
-
-            // 2. 각 네트워크의 컨테이너 ID 수집
-            for (Network network : networks) {
-                Map<String, ?> containers = network.getContainers();
-                if (containers != null) {
-                    containerIds.addAll(containers.keySet());
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Failed to get network containers: {}", e.getMessage());
-        }
-        return containerIds;
-    }
 
     // 애플리케이션 종료 시 스케줄러 정리
     @PreDestroy
