@@ -8,6 +8,8 @@ import java.util.Collection;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +20,8 @@ import org.springframework.kafka.listener.*;
 
 @Configuration
 public class ListenerContainerConfiguration {
+
+    private final Logger logger = LoggerFactory.getLogger(ListenerContainerConfiguration.class);
 
     @Value("${BOOTSTRAP_SERVER}")
     private String bootstrapServers;
@@ -36,6 +40,9 @@ public class ListenerContainerConfiguration {
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");     // 이전에 커밋된 offset이 없을 경우 가장 처음(offset 0)부터 소비
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);  // Kafka가 자동으로 offset을 커밋하지 않도록 설정
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 200);     // 한 번 poll() 호출 시 가져올 최대 메시지 수
+
+        // 로그로 실제 적용된 bootstrapServers 값을 출력
+        logger.info("### [Kafka Consumer] bootstrap.servers = {}", bootstrapServers);
 
         DefaultKafkaConsumerFactory<Object, Object> cf = new DefaultKafkaConsumerFactory<>(props);
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();

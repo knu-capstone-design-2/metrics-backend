@@ -7,17 +7,22 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
 public class LocalhostDataCollectorApplication {
+
+    @Value("${KAFKA_BOOTSTRAP_SERVER}")
+    private static String kafkaBootstrapServer;
+
     public static void main(String[] args) throws Exception{
 
         // Kafka Producer 설정
         Properties props = new Properties();
-        props.put("bootstrap.servers", "kafka:9092");
+        props.put("bootstrap.servers", kafkaBootstrapServer);
 
         //props.put("bootstrap.servers", "host.docker.internal:9092");
         //props.put("bootstrap.servers", "host.docker.internal:9092");
