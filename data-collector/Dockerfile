@@ -1,3 +1,14 @@
+# 1단계: 빌드용 이미지 (Gradle + JDK 21)
+FROM gradle:8.5.0-jdk21 AS build
+WORKDIR /app
+
+# 루트 프로젝트 전체 복사 (settings.gradle 포함)
+COPY . .
+
+# data-collector 모듈만 빌드
+RUN gradle clean :data-collector:build -x test
+
+# 2단계: 실행용 이미지 (JRE 21)
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
@@ -5,11 +16,26 @@ WORKDIR /app
 RUN adduser --disabled-password --gecos '' appuser \
   && chown -R appuser:appuser /app
 
-COPY build/libs/data-collector-0.0.1-SNAPSHOT.jar app.jar
+# 빌드된 JAR 복사
+COPY --from=build /app/data-collector/build/libs/data-collector-0.0.1-SNAPSHOT.jar app.jar
 
 USER appuser
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
+#FROM eclipse-temurin:21-jre
+#WORKDIR /app
+#
+## 비root 사용자 생성 및 권한 부여
+#RUN adduser --disabled-password --gecos '' appuser \
+#  && chown -R appuser:appuser /app
+#
+#COPY build/libs/data-collector-0.0.1-SNAPSHOT.jar app.jar
+#
+#USER appuser
+#
+#ENTRYPOINT ["java", "-jar", "app.jar"]
 
 
 

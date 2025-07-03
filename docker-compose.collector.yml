@@ -1,0 +1,19 @@
+services:
+  data-collector:
+    build: ./monitoring/data-collector  # 경로 수정
+    container_name: data-collector
+    environment:
+      - TZ=Asia/Seoul
+    networks:
+      - monitoring_network
+
+  localhost-data-collector:
+    build: ./monitoring/localhost-data-collector  # 경로 수정
+    container_name: localhost-data-collector
+    environment:
+    - TZ=Asia/Seoul
+    networks:
+      - monitoring_network
+networks:
+  monitoring_network:
+    external: true
